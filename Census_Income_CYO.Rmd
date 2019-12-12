@@ -93,6 +93,7 @@ if (!require(tidyr))
 # Load libraries
 library(tidyverse)
 library(caret)
+library(ggplot2)
 library(hexbin)
 library(lubridate)
 library(knitr)
@@ -235,6 +236,30 @@ Let's check column types and their class
 
 <br/>
 
+
+
+<br/>
+
+#### Factorizing Variables
+# TBD
+In the dataset, columns `userId` and `movieId` contains numeric data and treated as numeric/integer by R. These columns can be converted to factor as this could be used as categorical data; however, in the current scenario it makes more sense to leave it as numeric to keep later computation easier e.g. summarize() function and other numeric calculations can be done easily.
+
+```{r userid-movieid class}
+    # to factoring variables to exclude the unwanted levels
+    census_data$workclass <- factor(census_data$workclass)
+    census_data$occupation <- factor(census_data$occupation)
+    census_data$native_country <- factor(census_data$native_country)
+
+``` 
+
+
+<br/>
+
+### 3.2 Tidying data
+
+Based on the initial understanding further data analysis is required to identify data cleaning necessities. Following are the steps to tidy the data:
+
+
 #### Duplicate Records
 
 Let's first check for any duplicate record. The following table shows there are 24 duplicate rows.
@@ -292,36 +317,6 @@ As it can be seen from the below table, there are 2,399 incomplete records (~7.4
 ```
 
 
-<br/>
-
-
-<br/>
-
-#### Factorizing Variables
-# TBD
-In the dataset, columns `userId` and `movieId` contains numeric data and treated as numeric/integer by R. These columns can be converted to factor as this could be used as categorical data; however, in the current scenario it makes more sense to leave it as numeric to keep later computation easier e.g. summarize() function and other numeric calculations can be done easily.
-
-```{r userid-movieid class}
-    # to factoring variables to exclude the unwanted levels
-    census_data$workclass <- factor(census_data$workclass)
-    census_data$occupation <- factor(census_data$occupation)
-    census_data$native_country <- factor(census_data$native_country)
-
-``` 
-
-
-<br/>
-
-#### Label encoding
-There are no columns with content as ordinal labels, so label encoding is not required in the dataset.
-
-
-<br/>
-
-### 3.2 Tidying data
-
-Based on the initial understanding further data analysis is required to identify data cleaning necessities. Following are the steps to tidy the data:
-
 
 #### Impute missing values
 
@@ -344,16 +339,6 @@ To prepare the dataset for analysis, getting rid if missing values in an importa
 ```
 
 <br/>
-
-#### Income column 
-
-Next, to aid the analysis, `income` column values can be changed to 1 and 0 respectively for greater than $50k and less then or equal to $50k income.
-
-```{r income}
-    # remove leading space in income factor using mutate function
-    census_data <- census_data %>%
-      mutate(income = factor(if_else(income == "<=50K", 0, 1)))
-```
 
 
 #### Education and Education_Num columns
@@ -406,16 +391,17 @@ Next, cobmine `marital_status` column values into 3 categories - Married, Not-ma
 
 ```{r marital_status}
     # to combine the column values catagories 
-    census_data$marital_status[census_data$marital_status == "Married-AF-spouse" |
-                                 census_data$marital_status == "Married-civ-spouse" |
-                                 census_data$marital_status == "Married-spouse-absent"] <-
+
+    Married <- c("Married-AF-spouse", "Married-civ-spouse", "Married-spouse-absent")
+    Notmarried <- c("Divorced","Separated", "Widowed")
+
+    # to update the marital_status column with the new catagories    
+    census_data$marital_status[census_data$marital_status %in% Married] <-
       "Married"
-    
-    census_data$marital_status[census_data$marital_status == "Divorced" |
-                                 census_data$marital_status == "Separated" |
-                                 census_data$marital_status == "Widowed"] <-
+    census_data$marital_status[census_data$marital_status %in% Notmarried] <-
       "Not-married"
     
+
     # to display the table
     table(census_data$marital_status) %>%
       kable() %>%
@@ -477,7 +463,7 @@ The countries are categorized among their respective regions and leaving key cou
 
 #### Combine Education column catagories
 
-Similarly, categories in `education` column can be combined to make modelling efficient.
+Similarly, categories in `education` column can be combined into a fewer columns to make the modeling more efficient.
 
 
 ```{r education}
@@ -530,28 +516,174 @@ Next, categories in `workclass` column can be combined into fewer catogories as 
 
 
 
+
 \pagebreak
 
 # 4. Exploratory Data Analysis and Visualization
 
 The next step is to perform exploratory data analysis on the tidy data by utilizing visualization techniques.
 
-#### Ratings Distribution
+#### Age vs income
 
 The chart shows that users have a preference to rate movies rather higher than lower. 4.0 is the most common rating, followed by 3.0 and 5.0. 0.5 is the least preferable rating and there is no movie with a 0.0 rating.
 
 The difference in the median and mean noted in the *Summary and Average Ratings* section above also supports the negative skewness slope of the distribution towards higher ratings.
 
-```{r rating_distribution}
+```{r age_income}
+    ggplot(census_data, aes(x = age, color = income, fill = income)) +
+      geom_density(alpha = 0.8) +
+      labs(x = "Age", y = "Density",
+        title = "People who are older earn more",
+        subtitle = "Density plot"
+      )
+
+    census_data %>%
+      dplyr::group_by(income) %>%
+      dplyr::summarise(age = median(age))
+```
+
+#### Workclass vs income
+
+```{r workclass_income}
+ggplot(census_data, aes(x = workclass, fill = income, color = income)) +
   
+  # aes(workclass, count(workclass), fill=factor(income, levels=c("blue","white" )))) +
+  geom_bar(alpha = 0.8, position = "fill") +
+  coord_flip() +
+  #geom_text(aes(label = label), position = position_stack(vjust = 0.5), size = 2) +
+  
+  # scale axis to custom range and intervels
+  #scale_y_discrete(limits = c(seq(0,100,10)))  +
+  
+  labs(
+    x = "Working Class",
+    y = "Proportion",
+    title = "Income bias based on working class",
+    subtitle = "Stacked bar plot"
+  )
+
+prop.table(table(census_data$workclass, census_data$income), 1) * 100
+
+ 
+
+ggplot(census_data, aes(forcats::fct_reorder(workclass, as.numeric(income)), fill = income)) +
+  geom_bar(position = "fill") 
+#+
+ # scale_y_continuous(labels = percent)
+    
 ```
 
 
-### 2.3 Spliting dataset: Training and Validation Sets
+#### Education vs income
 
-The census_data dataset will be split into *census_data_train* and *census_data_test* set (20%). The algorithm is developed using the census_data_train and for a final test of the algorithm, income will be predicted on the census_data_test set as if they were unknown. 
+```{r education_income}
+    ggplot(census_data, aes(x = education, fill = income, color = income)) +
+       geom_bar(alpha = 0.8, position = "fill") +
+       coord_flip() +
+       labs(x = "Education Level", y = "Proportion", title = "People with more education earn more",
+            subtitle = "Stacked bar plot")
+    
+    prop.table(table(census_data$education, census_data$income), 1) * 100
+
+```
+
+
+#### Marital Status vs income
+
+```{r maritalstatus_income}
+    ggplot(census_data, aes(x = marital_status, fill = income, color = income)) +
+       geom_bar(alpha = 0.8, position = "fill") +
+      coord_flip() +    
+       labs(x = "Marital Status", y = "Proportion", title = "Married people tend to earn more",
+            subtitle = "Stacked bar plot")
+    
+    prop.table(table(census_data$marital_status, census_data$income), 1) * 100
+
+```
+
+
+#### Race vs income
+
+```{r Race_income}
+    ggplot(census_data, aes(x = race, fill = income, color = income)) +
+      geom_bar(alpha = 0.8, position = "fill") +
+      coord_flip()+
+   labs(x = "Race", y = "Proportion", title = "There is a bias in income based on race",
+        subtitle = "Stacked bar plot")
+    
+    prop.table(table(census_data$race, census_data$income), 1) * 100
+
+```
+
+
+
+#### Occupation vs income
+
+```{r Occupation_income}
+    ggplot(census_data, aes(x = occupation, fill = income, color = income)) +
+       geom_bar(alpha = 0.8, position = "fill") +
+         coord_flip() +
+   labs(x = "Occupation", y = "Proportion", title = "There is a bias in the income based on occupation",
+        subtitle = "Stacked bar plot")
+    
+    prop.table(table(census_data$occupation, census_data$income), 1) * 100
+
+```
+
+
+
+#### Sex vs income
+
+```{r Sex_income}
+    ggplot(census_data, aes(x = sex, fill = income, color = income)) +
+       geom_bar(alpha = 0.8, position = "fill") +
+         coord_flip() +
+   labs(x = "Gender", y = "Proportion", title = "Men earn more",
+        subtitle = "Stacked bar plot")
+    
+    prop.table(table(census_data$sex, census_data$income), 1) * 100
+
+```
+
+
+#### Working hours vs income
+
+```{r hours_income}
+    ggplot(census_data, aes(x = hours_per_week, fill = income, color = income)) +
+       geom_bar(alpha = 0.8, position = "fill") +
+         coord_flip() +
+   labs(x = "Hours per Week", y = "Proportion", title = "Men earn more",
+        subtitle = "Stacked bar plot")
+    
+census_data %>% 
+   dplyr::group_by(income) %>% 
+   dplyr::summarise(hours = mean(hours_per_week))
+
+```
+
+
+#### Native Country vs income
+
+```{r country_income}
+    ggplot(census_data, aes(x = native_country, fill = income, color = income)) +
+       geom_bar(alpha = 0.8, position = "fill") +
+         coord_flip() +
+   labs(x = "Native Country", y = "Proportion", title = "There is a bias in income based on the country of origin",
+        subtitle = "Stacked bar plot")
+    
+prop.table(table(census_data$native_country, census_data$income), 1) * 100
+
+```
 
 \pagebreak
+
+# 5. Modeling Approach
+
+Now, with the analysis we are ready for modeling the prediction model, this section describes modeling approaches and insights gained before finalizing a target model.
+
+### 5.1 Spliting dataset: Training and Validation Sets
+
+Let's first split the census_data datasetinto *census_data_train* and *census_data_test* set (20%). The algorithm is developed using the census_data_train and for a final test of the algorithm, income will be predicted on the census_data_test set as if they were unknown. 
 
 The following code is used to generate the required datasets. 
 
@@ -578,11 +710,9 @@ rm(test_index)
 
 \pagebreak
 
-# 5. Modeling Approach
 
-Now, with the analysis we are ready for modeling the prediction model, this section describes modeling approaches and insights gained before finalizing a target model.
 
-### 5.1 Model 1: Logistic Regression Model
+### 5.2 Model 1: Logistic Regression Model
 
 ```{r log_model, eval= FALSE}
     # to create logistic regression model
@@ -613,7 +743,7 @@ Now, with the analysis we are ready for modeling the prediction model, this sect
 
 
 
-### 5.2 Model 1: Basic Rating Mean Model 
+### 5.3 Model 2: 
 
 Let's start with a very basic model based on the rating average. This simplest possible prediction model will predict the same rating for all movies without taking any other predictors into account. The difference in the predicted values is explained by random variation in the independent error variable.
 
@@ -641,33 +771,24 @@ We can further refine this basic prediction model by removing outlier data point
 
 <br/>
 
+# 6. Results
+### 6.1 Modeling result comparison and performance
 
-### 5.3 Single Predictor Model
+The result of RMSE derived from various models is listed below. As we can clearly see there is an improvement as we moved from the basic Average Rating model to the Regularized model. From all the models explored in this project, the **regularized Movie and User Effects model** seems to be the best and the finally proposed model with the lowest RMSE (highlighted in green).
 
-To begin with a more complex model, we can start with a single potential predictor identified during the data exploration. Each potential predictors can be evaluated and compared with other models based on the RMSE generated.
+```{r results, eval = FALSE}
+      # to display result tables with RMSE model results 
+      rmse_results %>% 
+      kable("latex", booktabs = T) %>% 
+      kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+      pack_rows("Basic Prediction Model", 1, 1) %>%
+      pack_rows("Single Predictor Model", 2, 5)  %>%
+      pack_rows("Multipe Predictors Model", 6, 6) %>%
+      pack_rows("Regularized Model", 7, 8) %>%
+      row_spec(0, bold = T) %>%
+      row_spec(8:8, bold = T, color = "white", background = "#3DDB48")
 
-#### 5.3.1 Model 2: Movie Effect Model
-
-This model takes into account the effect of the movie considering that each movie is not rated equally and introduces a movie bias term to the *Basic Rating Mean Model*. The term is based on individual movie mean rating and its difference with the overall mean rating. 
-
-As it can be seen from the graph below, the left skewness implies that more movies have negative effects (rated less than the average).
-
-```{r movie bias, fig.align='center',echo = FALSE}  
 ```
-
-The model can be denoted as follow:
-
-$$ Y_{u,i} = \mu + b_i + \epsilon_{u,i} $$
-where $Y_{u,i}$ is the predicted rating, $\epsilon_{u,i}$ is the independent error, $\mu$ the mean rating for all movies, and $b_i$ is the bias for each movie $i$: 
-
-The least-squares lm() method is not being used as it is computation-intensive and slow on a large datasets, specifically computing bias for each movie. So we will use the average of the residuals.
-
-Individual movie bias is calculated using the formula: $$b_i = mean (rating_i - \mu)$$
-
-
-<br/>
-
-
 
 
 <br/>
