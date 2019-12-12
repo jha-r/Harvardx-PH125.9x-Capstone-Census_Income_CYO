@@ -200,6 +200,14 @@ census_data$workclass = gsub("^Self-emp-not-inc", "Self-Employed", census_data$w
 census_data$workclass = gsub("^Self-emp-inc", "Self-Employed", census_data$workclass)
 
 # to display the data in a tabular form
-table(census_data$workclass) %>%
+table(census_data$education) %>%
   kable() %>%
   kable_styling(latex_options = c("striped", "hover", "condensed"))
+
+
+census_data_temp$workclass <- factor(census_data$workclass, levels = census_data$workclass[order(census_data$income)]) %>%
+
+ggplot(census_data) +
+  aes(x = workclass, y= "1", fill = income) +
+  geom_bar(position = "fill", stat = "identity") +
+  coord_flip()
