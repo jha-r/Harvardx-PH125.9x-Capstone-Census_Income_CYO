@@ -79,7 +79,6 @@ To assist with our data import and initial setup, several packages from *CRAN* i
 ##########################
 # to import and setup data
 ##########################
-
 # Install requested packages if not found
 if (!require(tidyverse))
   install.packages("tidyverse", repos = "http://cran.us.r-project.org")
@@ -91,8 +90,6 @@ if (!require(dplyr))
   install.packages("dplyr")
 if (!require(tidyr))
   install.packages("tidyr")
-
-
 # Load libraries
 library(tidyverse)
 library(caret)
@@ -100,12 +97,9 @@ library(hexbin)
 library(lubridate)
 library(knitr)
 library(kableExtra)
-
 # Adult Census Income dataset
 # http://archive.ics.uci.edu/ml/machine-learning-databases/adult
-
 datafile <- "Income.RData"
-
 # Check if datafile is already downloaded
 if (!file.exists("Income.RData"))
 {
@@ -141,14 +135,10 @@ if (!file.exists("Income.RData"))
   # read the data from the file and store in the census_data object
   census_data <-
     read.csv(file = "./dataset/adult.data", header = FALSE, 
-             col.names = c_names, stringsAsFactors = T, strip.white = TRUE)
+             col.names = c_names, strip.white = TRUE)
   
   # replace . in the columns names
   colnames(census_data) <- str_replace_all(colnames(census_data), "\\.", "_")
-  
-  # remove leading space in income factor using mutate function
-  census_data <- census_data %>%
-    mutate(income = factor(if_else(income == " <=50K", "lte50K", "gt50K")))
   
   # Save census_data object to datafile
   save(census_data, file = datafile)
@@ -160,42 +150,8 @@ if (!file.exists("Income.RData"))
   # Load the datafile if it already exists
   load(datafile)
 }
-
 ```
 
-
-<br/>
-
-### 2.3 Spliting dataset: Training and Validation Sets
-
-The census_data dataset will be split into *census_data_train* and *census_data_test* set (20%). The algorithm is developed using the census_data_train and for a final test of the algorithm, income will be predicted on the census_data_test set as if they were unknown. 
-
-\pagebreak
-
-The following code is used to generate the required datasets. 
-
-```{r split datasets, cache = TRUE}
-    ##############################################################################    
-    # to split datasets into edx, validation, census_data_train, and test_set
-    ##############################################################################
-
-set.seed(1)
-
-# Partition the data set into census_data_train and census_data_test dataset
-# with respect to dependent variable income
-# The census_data_test set will be 10% of census_data
-test_index <- createDataPartition(census_data$income,
-                                  times = 1,
-                                  p = 0.8,
-                                  list = FALSE)
-
-census_data_train <- census_data[test_index, ]
-census_data_test  <- census_data[-test_index, ]
-
-# Remove unused objects from the memory
-rm(test_index)
-
-```
 
 
 <br/>
@@ -253,14 +209,13 @@ The dataset has 32,561 records and 15 attributes
 <br/>
 
 
-#### Column types and Summary
+#### Column types and class
 
-Let's check column types, their class, and summary
+Let's check column types and their class
 
 
 ```{r Columns}
     # To display dataset column types and summary
-
     col_type <- as.data.frame(lapply(census_data, class)) %>%
       .[1, ] %>%
       gather(variable, R_class , 1:ncol(.)) %>%
@@ -268,7 +223,9 @@ Let's check column types, their class, and summary
         R_class == "factor",
         "categorical",
         ifelse(variable == "education_num", "categorical", "continuous")
-      )) %>%
+      )) 
+
+        col_type%>%
       
       # to format table with theme
       kable() %>%
@@ -283,7 +240,15 @@ Let's check column types, their class, and summary
 Let's first check for any duplicate record. The following table shows there are 24 duplicate rows.
 
 ```{r duplicates}
- 
+    census_data %>%
+      summarize(no_of_observations = n(),
+                no_of_distinct = n_distinct(.)) %>%
+      mutate(no_of_dup = no_of_observations - no_of_distinct) %>%
+      mutate(pct_dup = round(no_of_dup / no_of_observations * 100, 1)) %>%
+      # to format table with theme
+      kable() %>%
+      kable_styling(latex_options = c("striped", "hover", "condensed")) 
+
 ```
 
 
@@ -296,7 +261,6 @@ By closely looking at the data, it can be observed that there are columns with v
 As it can be seen from the below table, there are 2,399 incomplete records (~7.4%). Specifically, there are missing values in occupation, workclass and native_country, which accounts for 5.7%, 5.6% and 1.8% of the total records respectively.
 
 ```{r missing data}
-
     #to check if any missing value marked with NA
       anyNA(census_data)
     
@@ -305,22 +269,26 @@ As it can be seen from the below table, there are 2,399 incomplete records (~7.4
       map_df(census_data, ~ str_detect(., pattern = "\\?")) %>%
       rowSums() %>%
       tbl_df() %>%
-      filter(value > 1) %>%
+      filter(value > 0) %>%
       summarize(no_of_missing = n()) %>%
+      filter(no_of_missing > 1) %>%
       mutate(pct_missing = round(no_of_missing / nrow(census_data) * 100, 1),
              variable = "all variables") %>%
+
       select(variable, no_of_missing, pct_missing)
     
     
     map_df(census_data, ~ sum(str_detect(., pattern = "\\?"))) %>%
+
       gather(variable, no_of_missing, 1:15) %>%
       mutate(pct_missing = round(no_of_missing / nrow(census_data) * 100, 1)) %>%
       bind_rows(total_missing) %>%
+      filter(no_of_missing > 1) %>%
       arrange(desc(no_of_missing)) %>%
       # to format table with theme
       kable() %>%
-      kable_styling(latex_options = c("striped", "hover", "condensed")) 
-
+      kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+      row_spec(1:1, color = "white", background = "#D7261E")
 ```
 
 
@@ -330,11 +298,14 @@ As it can be seen from the below table, there are 2,399 incomplete records (~7.4
 <br/>
 
 #### Factorizing Variables
-
+# TBD
 In the dataset, columns `userId` and `movieId` contains numeric data and treated as numeric/integer by R. These columns can be converted to factor as this could be used as categorical data; however, in the current scenario it makes more sense to leave it as numeric to keep later computation easier e.g. summarize() function and other numeric calculations can be done easily.
 
-```{r userid-movieid class, echo=FALSE}
-    
+```{r userid-movieid class}
+    # to factoring variables to exclude the unwanted levels
+    census_data$workclass <- factor(census_data$workclass)
+    census_data$occupation <- factor(census_data$occupation)
+    census_data$native_country <- factor(census_data$native_country)
 
 ``` 
 
@@ -352,52 +323,213 @@ There are no columns with content as ordinal labels, so label encoding is not re
 Based on the initial understanding further data analysis is required to identify data cleaning necessities. Following are the steps to tidy the data:
 
 
-TBD
-Income
-education
-weight
-....
+#### Impute missing values
 
-<br/>
-
-#### Extracting Movie Release Year
- 
-The `title` column includes movie title and year the movie was released. This can be extracted as `year_released` in a separate column using the following code:
-
-```{r extract-year_released}
-
-```
+To prepare the dataset for analysis, getting rid if missing values in an important step. The method is by replacing the missing values with the mean for numerical variables; however, it makes more sense to remove records with missing values for categorical attribtes using the following code:
 
 
-<br/>
+```{r impute_missing}
+    # first to convert missing values ? to NA
+    # for workclass, occupation, and native_country
+    census_data$workclass<-ifelse(census_data$workclass=='?',
+                                  NA, as.character(census_data$workclass))
+    census_data$occupation<-ifelse(census_data$occupation=='?',
+                                   NA, as.character(census_data$occupation))
+    census_data$native_country<-ifelse(census_data$native_country=='?',
+                                       NA, as.character(census_data$native_country))
 
-#### Date Rated and Year Rated - Converting 'timestamp' to date
-
-Next, the `timestamp` column contains a UNIX timestamp (the number of seconds since January 1, 1970), which can be converted to easy to understand date and extracted as a `date_rated` separate column.
-
-Further, `year_rated` can be extracted into a separate column to aid the analysis, using the following code:
-
-
-```{r date-year rated}
-
-```
-
-
-<br/>
-
-#### Movie Current Age and Age at the time of Review
-
-Other columns such as `movie_age` (the current age of the movie) and `age_at_review` (age of the movie when it was rated) can be helpful for the analysis. Following is the code to add it in the dataset:
-
-
-```{r movie_age and age_at_review}
+    # next remove rows with missing values
+    census_data <- na.omit(census_data)
     
+```
+
+<br/>
+
+#### Income column 
+
+Next, to aid the analysis, `income` column values can be changed to 1 and 0 respectively for greater than $50k and less then or equal to $50k income.
+
+```{r income}
+    # remove leading space in income factor using mutate function
+    census_data <- census_data %>%
+      mutate(income = factor(if_else(income == "<=50K", 0, 1)))
+```
+
+
+#### Education and Education_Num columns
+
+`education` and `education_num` variables represents the same data with `education_num` as ordinal representation. We can get rid of `education_num` for cleaning the data using the following code:
+ 
+
+```{r education_num}
+    # to remove education_num column
+    census_data <- census_data %>%
+      select(-education_num)
+```
+
+
+<br/>
+
+#### Capital Gain and Capital Loss columns
+
+Next, the `capital_gain` and  `capital_loss` columns can be combined into a single colum `capital`. Further, `capital_gain` and  `capital_loss` columns can be removed to aid the analysis, using the following code:
+
+
+```{r capital}
+    # to combine capital gain and capital loss columns
+    # into a single column Capital,
+    # a positive value represents gain and negative represents loss
+    census_data <- census_data %>%
+      mutate(capital = capital_gain - capital_loss) %>%
+      # then remove capital_gain and capital_loss
+      select(-capital_gain, -capital_loss)
+```
+
+
+<br/>
+
+#### Final Weight column
+
+The final weight is represented by `fnlwgt` column, adjusts the weight as per population size of number of people in the census data.For example, a record gets a high weight if the proportion of such samples is comparatively small in the overall population and vice-versa. This is not useful in the analysis, hence, can be removed.
+
+
+```{r fnlwgt}
+    # to remove fnlwgt column
+    census_data <- census_data %>%
+      select(-fnlwgt)
+```
+
+#### Combine Marital Status column catagories
+
+Next, cobmine `marital_status` column values into 3 categories - Married, Not-married, Never-married using the following code:
+
+
+```{r marital_status}
+    # to combine the column values catagories 
+    census_data$marital_status[census_data$marital_status == "Married-AF-spouse" |
+                                 census_data$marital_status == "Married-civ-spouse" |
+                                 census_data$marital_status == "Married-spouse-absent"] <-
+      "Married"
+    
+    census_data$marital_status[census_data$marital_status == "Divorced" |
+                                 census_data$marital_status == "Separated" |
+                                 census_data$marital_status == "Widowed"] <-
+      "Not-married"
+    
+    # to display the table
+    table(census_data$marital_status) %>%
+      kable() %>%
+      kable_styling(latex_options = c("striped", "hover", "condensed"))
+```
+
+
+#### Combine Native Country column catagories
+
+There are too many categories in `native_country` column, it can be reduced to their regions and key countries.
+The countries are categorized among their respective regions and leaving key countries such as the US to see if native to the countries make any difference to the income prediction.
+
+```{r native_country}
+    # to combine the column values catagories 
+
+    LatinAmerica <- c("Dominican-Republic","Guatemala","Haiti","Honduras",
+                      "Jamaica","Mexico","Nicaragua", "Outlying-US(Guam-USVI-etc)", 
+                      "Puerto-Rico","Trinadad&Tobago","Cuba")
+
+    SouthAmerica <- c("Peru","Ecuador","El-Salvador","Columbia")
+    
+    Europe <- c("France","Germany","Greece","Holand-Netherlands",
+                "Hungary","Italy","Poland", "Portugal","Puerto-Rico",
+                "South","Ireland","Yugoslavia")
+    
+    Asia <- c("China","Hong","India","Japan","Iran")
+    
+    SE_Aisa <- c("Vietnam","Cambodia","Thailand","Laos","Philippines","Taiwan")
+    
+    US <- c("United-States")
+    UK <- c("England","Scotland")
+    Canada <- c("Canada")
+
+    # to update the native_country column with the new catagories    
+    census_data$native_country[census_data$native_country %in% LatinAmerica] <-
+      "Latin America"
+    census_data$native_country[census_data$native_country %in% Asia] <-
+      "Asia"
+    census_data$native_country[census_data$native_country %in% SE_Aisa] <-
+      "South East Aisa"
+    census_data$native_country[census_data$native_country %in% SouthAmerica] <-
+      "South America"
+    census_data$native_country[census_data$native_country %in% Europe] <-
+      "Europe"
+    census_data$native_country[census_data$native_country %in% US] <-
+      "US"
+    census_data$native_country[census_data$native_country %in% UK] <-
+      "UK"
+    census_data$native_country[census_data$native_country %in% Canada] <-
+      "Canada"
+
+    # to display the data in a tabular form
+    table(census_data$native_country) %>%
+          kable() %>%
+          kable_styling(latex_options = c("striped", "hover", "condensed"))
+```
+
+<br/>
+
+#### Combine Education column catagories
+
+Similarly, categories in `education` column can be combined to make modelling efficient.
+
+
+```{r education}
+    # to combine the column values catagories 
+
+    census_data$education = gsub("^10th", "No-college", census_data$education)
+    census_data$education = gsub("^11th", "No-college", census_data$education)
+    census_data$education = gsub("^12th", "No-college", census_data$education)
+    census_data$education = gsub("^1st-4th", "No-college", census_data$education)
+    census_data$education = gsub("^5th-6th", "No-college", census_data$education)
+    census_data$education = gsub("^7th-8th", "No-college", census_data$education)
+    census_data$education = gsub("^9th", "No-college", census_data$education)
+    census_data$education = gsub("^Assoc-acdm", "Associates", census_data$education)
+    census_data$education = gsub("^Assoc-voc", "Associates", census_data$education)
+    census_data$education = gsub("^Bachelors", "Bachelors", census_data$education)
+    census_data$education = gsub("^Doctorate", "Doctorate", census_data$education)
+    census_data$education = gsub("^HS-Grad", "HS-Graduate", census_data$education)
+    census_data$education = gsub("^Masters", "Masters", census_data$education)
+    census_data$education = gsub("^Preschool", "No-college", census_data$education)
+    census_data$education = gsub("^Prof-school", "Prof-School", census_data$education)
+    census_data$education = gsub("^Some-college", "Some-college", census_data$education)
+    
+        # to display the data in a tabular form
+    table(census_data$education) %>%
+          kable() %>%
+          kable_styling(latex_options = c("striped", "hover", "condensed"))
+
+```
+Please note: There is a weird space "^" is observed in education column values, so *gsub* is used to do string replace for values.
+
+#### Combine Workclass column catagories
+
+Next, categories in `workclass` column can be combined into fewer catogories as follows:
+
+
+```{r workclass}
+    # to combine the column values catagories 
+
+    census_data$workclass = gsub("^Without-pay", "Not-Working", census_data$workclass)
+    census_data$workclass = gsub("^Never-worked", "Not-Working", census_data$workclass)
+    census_data$workclass = gsub("^Self-emp-not-inc", "Self-Employed", census_data$workclass)
+    census_data$workclass = gsub("^Self-emp-inc", "Self-Employed", census_data$workclass)
+    
+        # to display the data in a tabular form
+    table(census_data$workclass) %>%
+          kable() %>%
+          kable_styling(latex_options = c("striped", "hover", "condensed"))
 
 ```
 
 
 
-<br/>
 \pagebreak
 
 # 4. Exploratory Data Analysis and Visualization
@@ -411,14 +543,35 @@ The chart shows that users have a preference to rate movies rather higher than l
 The difference in the median and mean noted in the *Summary and Average Ratings* section above also supports the negative skewness slope of the distribution towards higher ratings.
 
 ```{r rating_distribution}
-
   
 ```
 
 
-<br/>
+### 2.3 Spliting dataset: Training and Validation Sets
+
+The census_data dataset will be split into *census_data_train* and *census_data_test* set (20%). The algorithm is developed using the census_data_train and for a final test of the algorithm, income will be predicted on the census_data_test set as if they were unknown. 
 
 \pagebreak
+
+The following code is used to generate the required datasets. 
+
+```{r split datasets, cache = TRUE}
+    ##############################################################################    
+    # to split datasets into edx, validation, census_data_train, and test_set
+    ##############################################################################
+set.seed(1)
+# Partition the data set into census_data_train and census_data_test dataset
+# with respect to dependent variable income
+# The census_data_test set will be 10% of census_data
+test_index <- createDataPartition(census_data$income,
+                                  times = 1,
+                                  p = 0.8,
+                                  list = FALSE)
+census_data_train <- census_data[test_index, ]
+census_data_test  <- census_data[-test_index, ]
+# Remove unused objects from the memory
+rm(test_index)
+```
 
 
 <br/>
@@ -429,15 +582,36 @@ The difference in the median and mean noted in the *Summary and Average Ratings*
 
 Now, with the analysis we are ready for modeling the prediction model, this section describes modeling approaches and insights gained before finalizing a target model.
 
-### 5.1 Loss Function
+### 5.1 Model 1: Logistic Regression Model
 
-As discussed earlier we will use *Root Mean Square Error*, or *RMSE* loss function to measure the performance of the models. Lower the RMSE better the performance of the model.
+```{r log_model, eval= FALSE}
+    # to create logistic regression model
+    log_model <- glm(income ~ ., data = census_data_train, family = "binomial")
+    summary(log_model)
+    
+    
+    predicted <- predict(log_model, newdata = census_data_test, type = "response")
+    predicted_class <- ifelse(predicted > 0.5, "gt50K", "lte50K")
+    proportions <- addmargins(table(census_data_test$income, predicted_class))
+    caret::confusionMatrix(predicted_class, census_data_test$income, positive = "gt50K")
+    #Accuracy is 0.8524 on testing set.
+```
 
 
-$$ RMSE = \sqrt{\frac{1}{N}\displaystyle\sum_{u,i} (\hat{y}_{u,i}-y_{u,i})^{2}} $$
+```{r Accuracy_results, eval= FALSE}
+      # to display Model Accuracy results in a tabular form
+      model_results <- tibble(Model = "Logistic Regression Model", 
+                             Dataset = "census_data_test", Accuracy = round(1.222222, digits = 5))
+      model_results %>% 
+      
+      # to apply theme to the table
+      kable("latex", booktabs = T) %>% 
+      kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+      
+      row_spec(1:1, bold = T, color = "white", background = "#D7261E")
+```
 
-where N is sample size, y is the observed value, $\hat{y}$ is predicted value for u,i times and $\sum$ = summation 
- 
+
 
 ### 5.2 Model 1: Basic Rating Mean Model 
 
@@ -453,7 +627,6 @@ Now, lets now calculate RMSE for this model as follow:
 
 
 ```{r rmse_mu}
-
 ```
 
 This gives us our first model with RMSE to start with. Also, it can be noticed that this is equivalent to the standard deviation of rating distribution. 
@@ -461,7 +634,6 @@ This gives us our first model with RMSE to start with. Also, it can be noticed t
 The results can be displayed in a table for easy comparison using the following code:
 
 ```{r RMSE_result_tab}
-
 ```
 
 We can further refine this basic prediction model by removing outlier data points from the calculation; however, this may not yield the desired RMSE improvement. So we will move to the predictor based models by utilizing potential predicators insights gained during exploratory data analysis.
@@ -481,7 +653,6 @@ This model takes into account the effect of the movie considering that each movi
 As it can be seen from the graph below, the left skewness implies that more movies have negative effects (rated less than the average).
 
 ```{r movie bias, fig.align='center',echo = FALSE}  
-
 ```
 
 The model can be denoted as follow:
@@ -508,41 +679,27 @@ The main aim of the project is to develop a recommendation system to predict mov
 
 Initially, basic prediction models including Rating Mean and single predictors based models are developed, later more complex multiple predictors models are attempted and finally **regularized Movie and User Effect predictive model** is implemented. A RMSE value of **`r ` ** is attained on validation set which is less than the targeted value.
  
-
 ### 7.2 Future work
-
 The model using the Movie and User effects seems to have the best performance among the other two predictor models; however, multiple combinations of more than two potential predictors can be explored for further improvements as future work. 
-
 For example, *Genre-specific* effect on a user preference to rate a movie can be further explored. If a user rates movies with Drama genre high, the *Drama* effect for that user can be taken into account while predicting rating as the user is more likely to give higher ratings to movies with Drama as a sub-genre in combined genre Drama|Comedy and vice-versa.
 Such a genre-specific effect can be used along with Movie and User Effects for further improvement. 
-
 Furthermore, Other more complex modeling approaches such as XGBoost, NNET, etc could be used to further improve the performance.
-
 ### 7.3 Limitations 
-
 Initially, k-fold cross-validation with k=10 was planned; however, due to computing resource constraint it was not successful. So, a simpler alternative approach to partition provided edx dataset into training and test sets are utilized.
-
 Also, due to the constraint, more sophisticated models with higher performance didn't succeed and thus not included in this report. Those would require powerful computing machines. 
-
 One such example is splitting single pipe-delimited concatenated `genres` categories into single categories and use it in genre-specific effect, mentioned in '*Future Work* section'. However, the target RMSE was achieved with the Regularized Movie and User Effect model implemented in the project.
-
 <br/>
 \pagebreak
 
 # 8. References
-
 * Data Science textbook by Rafael Irizarry
     + [Chapter 34.7 Recommendation systems](https://rafalab.github.io/dsbook/large-datasets.html#recommendation-systems)
     + [Chapter 34.9 Regularization](https://rafalab.github.io/dsbook/large-datasets.html#regularization)
-
 * UCI
     + Adult Census Income Dataset: http://archive.ics.uci.edu/ml/machine-learning-databases/adult
 
-
 # 9. Github Repo
-
 * https://github.com/jha-r/Harvardx-PH125.9x-Capstone-Census_Income_CYO
-
 ```{r memory cleanup, echo = FALSE, results = "hide"}
       # Remove objects    
       #rm()  
