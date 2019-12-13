@@ -90,10 +90,16 @@ if (!require(dplyr))
   install.packages("dplyr")
 if (!require(tidyr))
   install.packages("tidyr")
+if (!require(e1071))
+  install.packages("e1071", , dependencies=TRUE, 
+                   repos = "http://cran.us.r-project.org")
+
 # Load libraries
 library(tidyverse)
 library(caret)
+library(e1071)
 library(ggplot2)
+library(randomForest)
 library(hexbin)
 library(lubridate)
 library(knitr)
@@ -835,7 +841,28 @@ Let's first split the census_data datasetinto *census_data_train* and *census_da
 
 The following code is used to generate the required datasets. 
 
-```{r split datasets, cache = TRUE}
+```{r factorizing}
+    # to factoring variables to exclude the unwanted levels
+    census_data$workclass <- factor(census_data$workclass)
+    census_data$occupation <- factor(census_data$occupation)
+    census_data$native_country <- factor(census_data$native_country)
+    census_data$education <- factor(census_data$education)
+    census_data$marital_status <- factor(census_data$marital_status)
+    
+    #census_data$hours_per_week <- factor(census_data$hours_per_week)
+    #census_data$age <- factor(census_data$age)
+    #census_data$capital <- factor(census_data$capital)
+    
+          anyNA(census_data)
+          
+        # next remove rows with missing values
+    census_data <- na.omit(census_data)
+
+``` 
+
+
+
+```{r split datasets}
     ##############################################################################    
     # to split datasets into edx, validation, census_data_train, and test_set
     ##############################################################################
@@ -844,9 +871,7 @@ The following code is used to generate the required datasets.
     # with respect to dependent variable income
     # The census_data_test set will be 10% of census_data
     test_index <- createDataPartition(census_data$income,
-                                      times = 1,
-                                      p = 0.8,
-                                      list = FALSE)
+                                      times = 1, p = 0.8, list = FALSE)
     census_data_train <- census_data[test_index, ]
     census_data_test  <- census_data[-test_index, ]
     # Remove unused objects from the memory
@@ -862,16 +887,22 @@ The following code is used to generate the required datasets.
 
 ### 5.2 Model 1: Logistic Regression Model
 
-```{r log_model,eval= FALSE}
+```{r log_model}
     # to create logistic regression model
-    log_model <- glm(income ~ ., data = census_data_train, family = "binomial")
+    log_model <- glm(income ~ ., data = census_data_train, family = binomial)
 
+    #summary(log_model)
     
     predicted <- predict(log_model, newdata = census_data_test, type = "response")
-    predicted_class <- ifelse(predicted > 0.5, ">50K", "<=50K")
+    predicted_class <- ifelse(predicted >= 0.5, ">50K", "<=50K")
+    table(predicted_class)
+    
     proportions <- addmargins(table(census_data_test$income, predicted_class))
-    log_model_Acc <- confusionMatrix(predicted_class, census_data_test$income, positive = ">50K")
-    log_model_Acc
+    #log_model_Acc <- confusionMatrix(predicted_class, census_data_test$income)$overall[1]
+    #log_model_Acc
+    
+    round(((4190  +830)/(4190  +830+640  +338))*100, digits=2)
+    
     #Accuracy is 0.8524 on testing set.
 ```
 
@@ -893,7 +924,28 @@ The following code is used to generate the required datasets.
 
 ### 5.3 Model 2: Random Forest
 
-```{r rf_model, eval=FALSE}
+```{r rf_model}
+    # to create logistic regression model
+
+    set.seed(32423)
+    rf_model <- randomForest(income ~ ., data = census_data_train)
+    print(rf_model)
+    
+    Prediction3 <-
+      predict(rf_model, newdata = census_data_test[, -15], type = 'class')
+    
+    rf_model_Acc <-
+      confusionMatrix(Prediction3, census_data_test$income)$overall[1]
+    
+    rf_model_Acc
+
+    
+```
+
+
+### 5.3 Model 3: KNN
+
+```{r knn_model, eval=FALSE}
     # to create logistic regression model
     log_model <- glm(income ~ ., data = census_data_train, family = "binomial")
     summary(log_model)
@@ -905,8 +957,20 @@ The following code is used to generate the required datasets.
     log_model_Acc <- confusionMatrix(predicted_class, census_data_test$income, positive = ">50K")
     log_model_Acc
     #Accuracy is 0.8524 on testing set.
+    
+    
+    Adult.model <- model.matrix(income~.-1,Adult)
+model.train <- Adult.model[train,]
+model.test <- Adult.model[-train,]
+income.train <- income[train]
+income.test <- income[-train]
+set.seed(1)
+knn.fit1 <- knn(census_data_train, census_data_test, income.train, k = 5)
+knn.table1 <- table(knn.fit1,income.test)
+knn.acc1 <- mean(knn.fit1==Adult.test$income)
+knn.acc1
+    
 ```
-
 
 <br/>
 
@@ -962,7 +1026,7 @@ One such example is splitting single pipe-delimited concatenated `genres` catego
 * https://github.com/jha-r/Harvardx-PH125.9x-Capstone-Census_Income_CYO
 ```{r memory cleanup, echo = FALSE, results = "hide"}
       # Remove objects    
-      #rm()  
+      rm(Married, Notmarried, LatinAmerica, SouthAmerica, Europe, Asia, SE_Aisa, US, UK, Canada, l)  
       # Call Garbage Collector
       gc()
 ```

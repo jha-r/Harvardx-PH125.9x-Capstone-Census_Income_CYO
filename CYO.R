@@ -101,6 +101,9 @@ census_data <- census_data %>%
 
 
 
+# to combine the column values catagories 
+census_data$marital_status <- as.character(census_data$marital_status)
+
 Married <- c("Married-AF-spouse", "Married-civ-spouse", "Married-spouse-absent")
 Notmarried <- c("Divorced","Separated", "Widowed")
 
@@ -110,6 +113,11 @@ census_data$marital_status[census_data$marital_status %in% Married] <-
 census_data$marital_status[census_data$marital_status %in% Notmarried] <-
   "Not-married"
 
+
+# to display the table
+table(census_data$marital_status) %>%
+  kable() %>%
+  kable_styling(latex_options = c("striped", "hover", "condensed"))
 
 # to display the table
 table(census_data$marital_status) %>%
@@ -224,3 +232,19 @@ census_data <- census_data %>%
            | (sex == 'Female' & relationship == 'Husband')))
 
 
+# to factoring variables to exclude the unwanted levels
+census_data$workclass <- factor(census_data$workclass)
+census_data$occupation <- factor(census_data$occupation)
+census_data$native_country <- factor(census_data$native_country)
+census_data$education <- factor(census_data$education)
+census_data$marital_status <- factor(census_data$marital_status)
+
+
+
+
+(l <- sapply(census_data, function(x) is.factor(x)))
+
+# next remove rows with missing values
+census_data <- na.omit(census_data)
+
+anyNA(census_data)
