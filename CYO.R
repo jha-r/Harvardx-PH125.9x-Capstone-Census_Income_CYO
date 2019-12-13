@@ -93,28 +93,29 @@ census_data<- census_data %>%
   # then remove capital_gain and capital_loss
   select(-capital_gain,-capital_loss)
 
-census_data <- census_data %>%
-  mutate(income = factor(if_else(income == "<=50K", 0, 1)))
+#census_data <- census_data %>%
+ # mutate(income = factor(if_else(income == "<=50K", 0, 1)))
 
 census_data <- census_data %>%
   select(-fnlwgt)
 
 
 
-census_data$marital_status <-
-  as.character(census_data$marital_status)
+Married <- c("Married-AF-spouse", "Married-civ-spouse", "Married-spouse-absent")
+Notmarried <- c("Divorced","Separated", "Widowed")
 
-census_data$marital_status[census_data$marital_status == "Married-AF-spouse" |
-                             census_data$marital_status == "Married-civ-spouse" |
-                             census_data$marital_status == "Married-spouse-absent"] <-
+# to update the marital_status column with the new catagories    
+census_data$marital_status[census_data$marital_status %in% Married] <-
   "Married"
-
-census_data$marital_status[census_data$marital_status == "Divorced" |
-                             census_data$marital_status == "Separated" |
-                             census_data$marital_status == "Widowed"] <-
+census_data$marital_status[census_data$marital_status %in% Notmarried] <-
   "Not-married"
 
-table(census_data$marital_status)
+
+# to display the table
+table(census_data$marital_status) %>%
+  kable() %>%
+  kable_styling(latex_options = c("striped", "hover", "condensed"))
+
 
 
 # to combine the column values catagories 
@@ -205,9 +206,21 @@ table(census_data$education) %>%
   kable_styling(latex_options = c("striped", "hover", "condensed"))
 
 
-census_data_temp$workclass <- factor(census_data$workclass, levels = census_data$workclass[order(census_data$income)]) %>%
 
-ggplot(census_data) +
-  aes(x = workclass, y= "1", fill = income) +
-  geom_bar(position = "fill", stat = "identity") +
-  coord_flip()
+census_data <- census_data %>%
+  filter(!(age<= 20 & education == 'Masters'))
+
+
+census_data <- census_data %>%
+  filter(!(age >= 80 & hours_per_week >40))
+
+
+census_data <- census_data %>%
+  filter(!(capital >= 99999))
+
+
+census_data <- census_data %>%
+  filter(!((sex == 'Male' & relationship == 'Wife') 
+           | (sex == 'Female' & relationship == 'Husband')))
+
+
