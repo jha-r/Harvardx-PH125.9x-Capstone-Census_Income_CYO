@@ -16,7 +16,7 @@ output:
 ```{r setup, include=FALSE}
     library(knitr)
     knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
-                          cache.lazy = FALSE, fig.align='center', fig.width=5.5, fig.height=3.5)
+                          cache.lazy = FALSE, fig.align='center', fig.width=6, fig.height=4.5)
 ```
 
 \pagebreak
@@ -136,7 +136,7 @@ if (!file.exists("Income.RData"))
   # read the data from the file and store in the census_data object
   census_data <-
     read.csv(file = "./dataset/adult.data", header = FALSE, 
-             col.names = c_names, strip.white = TRUE)
+             col.names = c_names, stringsAsFactors = T, strip.white = TRUE)
   
   # replace . in the columns names
   colnames(census_data) <- str_replace_all(colnames(census_data), "\\.", "_")
@@ -391,6 +391,7 @@ Next, cobmine `marital_status` column values into 3 categories - Married, Not-ma
 
 ```{r marital_status}
     # to combine the column values catagories 
+    census_data$marital_status <- as.character(census_data$marital_status)
 
     Married <- c("Married-AF-spouse", "Married-civ-spouse", "Married-spouse-absent")
     Notmarried <- c("Divorced","Separated", "Widowed")
@@ -545,43 +546,42 @@ The difference in the median and mean noted in the *Summary and Average Ratings*
 #### Workclass vs income
 
 ```{r workclass_income}
-ggplot(census_data, aes(x = workclass, fill = income, color = income)) +
   
-  # aes(workclass, count(workclass), fill=factor(income, levels=c("blue","white" )))) +
-  geom_bar(alpha = 0.8, position = "fill") +
-  coord_flip() +
-  #geom_text(aes(label = label), position = position_stack(vjust = 0.5), size = 2) +
+    plot_order <-
+      reorder(census_data$workclass, census_data$workclass, length)
+    plot_order <-
+      factor(plot_order, levels = rev(levels(plot_order)))
+    
+    ggplot(census_data, aes(plot_order)) +
+      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.5) +
+      scale_fill_manual(values = c('#FC4E07','#00AFBB')) +
+    
+      # scale axis to custom range and intervels
+      #scale_y_discrete(limits = c(seq(0,30000,1000))) 
   
-  # scale axis to custom range and intervels
-  #scale_y_discrete(limits = c(seq(0,100,10)))  +
+      coord_flip() +  
+      # to provide a title, x, and y axis labels
+      labs(x = "Working Class", y = "Count",
+        title = "Income bias based on working class")
   
-  labs(
-    x = "Working Class",
-    y = "Proportion",
-    title = "Income bias based on working class",
-    subtitle = "Stacked bar plot"
-  )
-
-prop.table(table(census_data$workclass, census_data$income), 1) * 100
+    prop.table(table(census_data$workclass, census_data$income), 1) * 100
 
  
-
-ggplot(census_data, aes(forcats::fct_reorder(workclass, as.numeric(income)), fill = income)) +
-  geom_bar(position = "fill") 
-#+
- # scale_y_continuous(labels = percent)
-    
 ```
 
 
 #### Education vs income
 
 ```{r education_income}
-    ggplot(census_data, aes(x = education, fill = income, color = income)) +
-       geom_bar(alpha = 0.8, position = "fill") +
-       coord_flip() +
-       labs(x = "Education Level", y = "Proportion", title = "People with more education earn more",
-            subtitle = "Stacked bar plot")
+    plot_order <-
+      reorder(census_data$education, census_data$education, length)
+    plot_order <-
+      factor(plot_order, levels = rev(levels(plot_order)))
+    
+    ggplot(census_data, aes(plot_order)) +
+      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      coord_flip() +
+     labs(x = "Education Level", y = "Count", title = "People with more education earn more")
     
     prop.table(table(census_data$education, census_data$income), 1) * 100
 
@@ -591,11 +591,16 @@ ggplot(census_data, aes(forcats::fct_reorder(workclass, as.numeric(income)), fil
 #### Marital Status vs income
 
 ```{r maritalstatus_income}
-    ggplot(census_data, aes(x = marital_status, fill = income, color = income)) +
-       geom_bar(alpha = 0.8, position = "fill") +
-      coord_flip() +    
-       labs(x = "Marital Status", y = "Proportion", title = "Married people tend to earn more",
-            subtitle = "Stacked bar plot")
+    plot_order <-
+      reorder(census_data$marital_status, census_data$marital_status, length)
+    plot_order <-
+      factor(plot_order, levels = rev(levels(plot_order)))
+    
+    ggplot(census_data, aes(plot_order)) +
+      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      coord_flip() +
+       labs(x = "Marital Status", y = "Count", title = "Married people tend to earn more")
+
     
     prop.table(table(census_data$marital_status, census_data$income), 1) * 100
 
@@ -605,12 +610,17 @@ ggplot(census_data, aes(forcats::fct_reorder(workclass, as.numeric(income)), fil
 #### Race vs income
 
 ```{r Race_income}
-    ggplot(census_data, aes(x = race, fill = income, color = income)) +
-      geom_bar(alpha = 0.8, position = "fill") +
-      coord_flip()+
-   labs(x = "Race", y = "Proportion", title = "There is a bias in income based on race",
-        subtitle = "Stacked bar plot")
+    plot_order <-
+      reorder(census_data$race, census_data$race, length)
+    plot_order <-
+      factor(plot_order, levels = rev(levels(plot_order)))
     
+    ggplot(census_data, aes(plot_order)) +
+      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      coord_flip() +
+   labs(x = "Race", y = "Count", title = "There is a bias in income based on race")
+
+
     prop.table(table(census_data$race, census_data$income), 1) * 100
 
 ```
@@ -620,11 +630,15 @@ ggplot(census_data, aes(forcats::fct_reorder(workclass, as.numeric(income)), fil
 #### Occupation vs income
 
 ```{r Occupation_income}
-    ggplot(census_data, aes(x = occupation, fill = income, color = income)) +
-       geom_bar(alpha = 0.8, position = "fill") +
-         coord_flip() +
-   labs(x = "Occupation", y = "Proportion", title = "There is a bias in the income based on occupation",
-        subtitle = "Stacked bar plot")
+    plot_order <-
+      reorder(census_data$occupation, census_data$occupation, length)
+    plot_order <-
+      factor(plot_order, levels = rev(levels(plot_order)))
+    
+    ggplot(census_data, aes(plot_order)) +
+      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      coord_flip() +
+      labs(x = "Occupation", y = "Count", title = "There is a bias in the income based on occupation")
     
     prop.table(table(census_data$occupation, census_data$income), 1) * 100
 
@@ -635,12 +649,17 @@ ggplot(census_data, aes(forcats::fct_reorder(workclass, as.numeric(income)), fil
 #### Sex vs income
 
 ```{r Sex_income}
-    ggplot(census_data, aes(x = sex, fill = income, color = income)) +
-       geom_bar(alpha = 0.8, position = "fill") +
-         coord_flip() +
-   labs(x = "Gender", y = "Proportion", title = "Men earn more",
-        subtitle = "Stacked bar plot")
+    plot_order <-
+      reorder(census_data$sex, census_data$sex, length)
+    plot_order <-
+      factor(plot_order, levels = rev(levels(plot_order)))
     
+    ggplot(census_data, aes(plot_order)) +
+      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      coord_flip() +
+      labs(x = "Gender", y = "Count", title = "Men earn more")
+
+
     prop.table(table(census_data$sex, census_data$income), 1) * 100
 
 ```
@@ -652,8 +671,7 @@ ggplot(census_data, aes(forcats::fct_reorder(workclass, as.numeric(income)), fil
     ggplot(census_data, aes(x = hours_per_week, fill = income, color = income)) +
        geom_bar(alpha = 0.8, position = "fill") +
          coord_flip() +
-   labs(x = "Hours per Week", y = "Proportion", title = "Men earn more",
-        subtitle = "Stacked bar plot")
+   labs(x = "Hours per Week", y = "Proportion", title = "Men earn more")
     
 census_data %>% 
    dplyr::group_by(income) %>% 
@@ -665,15 +683,145 @@ census_data %>%
 #### Native Country vs income
 
 ```{r country_income}
-    ggplot(census_data, aes(x = native_country, fill = income, color = income)) +
-       geom_bar(alpha = 0.8, position = "fill") +
-         coord_flip() +
-   labs(x = "Native Country", y = "Proportion", title = "There is a bias in income based on the country of origin",
-        subtitle = "Stacked bar plot")
+
+    plot_order <-
+      reorder(census_data$native_country, census_data$native_country, length)
+    plot_order <-
+      factor(plot_order, levels = rev(levels(plot_order)))
     
+    ggplot(census_data, aes(plot_order)) +
+      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      coord_flip() +
+      labs(x = "Native Country", y = "Count", 
+          title = "There is a bias in income based on the country of origin")
+      
 prop.table(table(census_data$native_country, census_data$income), 1) * 100
 
 ```
+
+#### Outliers
+
+Outliers are the datapoints that differs significantly from other observations. It may be due to variability in the measurement or due to data error. The larger outliers have a disproportionately large effect on model performance; hence, it is advisable to exclude them from dataset.
+
+
+#### Outliers: Education level
+
+
+
+```{r age_edul}
+    census_data %>%
+    
+    # to map age and education level variables to aesthetics of ggplot function
+    ggplot(aes(age, education)) +
+    # to plot scattered data using geom_point
+    geom_point( alpha = 0.3, col = "#00AFBB") +
+    # to highlight obscure outlier points with different color
+    geom_point(aes(col = (age<= 20 & education == 'Masters')), alpha = 1) +
+    scale_colour_manual(values = setNames(c('red','#00AFBB'),c(T, F)))+
+    # to move legend at the end of the figure
+    theme(legend.position="bottom") +
+    # to scale the axis values
+    scale_x_continuous(breaks = seq(0,100,10))+
+    # to provide a title, x, and y axis labels
+    xlab("Age") + 
+    ylab("Education Level") +
+    ggtitle("Age vs Education Level")
+```  
+
+
+```{r filter_age_edul}
+    census_data <- census_data %>%
+      filter(!(age <= 20 & education == 'Masters'))
+```  
+
+#### Outliers: 
+
+```{r sex_rel}
+    census_data %>%
+    # to map sex and relationship variables to aesthetics of ggplot function
+    ggplot(aes(sex, relationship)) +
+    # to plot scattered data using geom_point
+    geom_point( alpha = 0.5, col = "#00AFBB") +
+    # to highlight obscure outlier points with different color
+    geom_point(aes(col = (sex == 'Male' & relationship == 'Wife') 
+                   | (sex == 'Female' & relationship == 'Husband')), alpha = 1)+
+    scale_colour_manual(values = setNames(c('red','#00AFBB'),c(T, F)))+
+    # to move legend at the end of the figure  
+    theme(legend.position="bottom") +
+    
+    # to provide a title, x, and y axis labels
+    xlab("Sex") + 
+    ylab("Relationship") +
+    ggtitle("Gender vs Relationship")
+```  
+
+
+```{r filter_sex_rel}
+    census_data <- census_data %>%
+      filter(!((sex == 'Male' & relationship == 'Wife') 
+                   | (sex == 'Female' & relationship == 'Husband')))
+```  
+
+
+#### Outliers: 
+
+```{r age_hours}
+    census_data %>%
+    # to map age and hours per week variables to aesthetics of ggplot function
+    ggplot(aes(age, hours_per_week)) +
+    # to plot scattered data using geom_point
+    geom_point( alpha = 0.3, col = "#00AFBB") +
+    # to highlight obscure outlier points with different color  
+    geom_point(aes(col = (age >= 80 & hours_per_week >40)),alpha = 1)+
+    scale_colour_manual(values = setNames(c('red','#00AFBB'),c(T, F)))+
+    # to scale the axis values
+    scale_x_continuous(breaks = seq(0,100,10))+
+    scale_y_continuous(breaks = seq(0,100,10))+
+    # to move legend at the end of the figure  
+    theme(legend.position="bottom") +
+  
+    # to provide a title, x, and y axis labels
+    xlab("Age") + 
+    ylab("Hours per week") +
+    ggtitle("Age vs Hours per week")
+``` 
+
+
+```{r filter_age_hours}
+    census_data <- census_data %>%
+      filter(!(age >= 80 & hours_per_week >40))
+```  
+
+
+#### Outliers: 
+
+```{r age_capital}
+    census_data %>%
+    # to map age and capital variables to aesthetics of ggplot function
+    ggplot(aes(age, capital)) +
+    
+    # to plot scattered data using geom_point
+    geom_point(alpha = 0.3, col = "#00AFBB") +
+    # to highlight obscure outlier points with different color   
+    geom_point(aes(col = (capital >= 99999)), alpha = 1)+
+    scale_colour_manual(values = setNames(c('red','#00AFBB'),c(T, F)))+
+    # to scale the axis values  
+    scale_x_continuous(breaks = seq(0,100,10))+
+    # to move legend at the end of the figure  
+    theme(legend.position="bottom") +
+    
+    # to provide a title, x, and y axis labels
+    xlab("Age") + 
+    ylab("Capital") +
+    ggtitle("Age vs Capital")
+``` 
+
+
+```{r filter_age_capital}
+    census_data <- census_data %>%
+      filter(!(capital >= 99999))
+```  
+
 
 \pagebreak
 
@@ -691,18 +839,18 @@ The following code is used to generate the required datasets.
     ##############################################################################    
     # to split datasets into edx, validation, census_data_train, and test_set
     ##############################################################################
-set.seed(1)
-# Partition the data set into census_data_train and census_data_test dataset
-# with respect to dependent variable income
-# The census_data_test set will be 10% of census_data
-test_index <- createDataPartition(census_data$income,
-                                  times = 1,
-                                  p = 0.8,
-                                  list = FALSE)
-census_data_train <- census_data[test_index, ]
-census_data_test  <- census_data[-test_index, ]
-# Remove unused objects from the memory
-rm(test_index)
+    set.seed(1)
+    # Partition the data set into census_data_train and census_data_test dataset
+    # with respect to dependent variable income
+    # The census_data_test set will be 10% of census_data
+    test_index <- createDataPartition(census_data$income,
+                                      times = 1,
+                                      p = 0.8,
+                                      list = FALSE)
+    census_data_train <- census_data[test_index, ]
+    census_data_test  <- census_data[-test_index, ]
+    # Remove unused objects from the memory
+    rm(test_index)
 ```
 
 
@@ -714,16 +862,16 @@ rm(test_index)
 
 ### 5.2 Model 1: Logistic Regression Model
 
-```{r log_model, eval= FALSE}
+```{r log_model,eval= FALSE}
     # to create logistic regression model
     log_model <- glm(income ~ ., data = census_data_train, family = "binomial")
-    summary(log_model)
-    
+
     
     predicted <- predict(log_model, newdata = census_data_test, type = "response")
-    predicted_class <- ifelse(predicted > 0.5, "gt50K", "lte50K")
+    predicted_class <- ifelse(predicted > 0.5, ">50K", "<=50K")
     proportions <- addmargins(table(census_data_test$income, predicted_class))
-    caret::confusionMatrix(predicted_class, census_data_test$income, positive = "gt50K")
+    log_model_Acc <- confusionMatrix(predicted_class, census_data_test$income, positive = ">50K")
+    log_model_Acc
     #Accuracy is 0.8524 on testing set.
 ```
 
@@ -731,7 +879,7 @@ rm(test_index)
 ```{r Accuracy_results, eval= FALSE}
       # to display Model Accuracy results in a tabular form
       model_results <- tibble(Model = "Logistic Regression Model", 
-                             Dataset = "census_data_test", Accuracy = round(1.222222, digits = 5))
+                             Dataset = "census_data_test", Accuracy = round(log_model_Acc, digits = 5))
       model_results %>% 
       
       # to apply theme to the table
@@ -743,30 +891,21 @@ rm(test_index)
 
 
 
-### 5.3 Model 2: 
+### 5.3 Model 2: Random Forest
 
-Let's start with a very basic model based on the rating average. This simplest possible prediction model will predict the same rating for all movies without taking any other predictors into account. The difference in the predicted values is explained by random variation in the independent error variable.
-
-The model can be represented as follows:
-
-$$ Y_{u, i} = \mu + \epsilon_{u, i} $$
-
-where $\mu$ is the mean which shows the true rating value for all movies. And, $\epsilon_{u,i}$ is the independent random error variable.
-
-Now, lets now calculate RMSE for this model as follow:
-
-
-```{r rmse_mu}
+```{r rf_model, eval=FALSE}
+    # to create logistic regression model
+    log_model <- glm(income ~ ., data = census_data_train, family = "binomial")
+    summary(log_model)
+    
+    
+    predicted <- predict(log_model, newdata = census_data_test, type = "response")
+    predicted_class <- ifelse(predicted > 0.5, ">50K", "<=50K")
+    proportions <- addmargins(table(census_data_test$income, predicted_class))
+    log_model_Acc <- confusionMatrix(predicted_class, census_data_test$income, positive = ">50K")
+    log_model_Acc
+    #Accuracy is 0.8524 on testing set.
 ```
-
-This gives us our first model with RMSE to start with. Also, it can be noticed that this is equivalent to the standard deviation of rating distribution. 
-
-The results can be displayed in a table for easy comparison using the following code:
-
-```{r RMSE_result_tab}
-```
-
-We can further refine this basic prediction model by removing outlier data points from the calculation; however, this may not yield the desired RMSE improvement. So we will move to the predictor based models by utilizing potential predicators insights gained during exploratory data analysis.
 
 
 <br/>
@@ -827,3 +966,8 @@ One such example is splitting single pipe-delimited concatenated `genres` catego
       # Call Garbage Collector
       gc()
 ```
+
+# TODO
+write up
+code comments 
+grammar
