@@ -3,11 +3,11 @@ title: "HavardX PH125.9x Data Science Capstone CYO Project Report"
 author: "Ravi Jha"
 date: "12/20/2019"
 output:
-  html_document: default
   pdf_document:
     df_print: kable
     toc: yes
     toc_depth: 4
+  html_document: default
   word_document:
     toc: yes
     toc_depth: '4'
@@ -25,47 +25,41 @@ output:
 
 ### 1.1 Overview
 
-This report is prepared to fulfill the completion requirement of the **HavardX PH125.9x Data Science Capstone** course. 
-TBD
-
-model to classify people using demographics to predict whether a person will have an annual income over 50K dollars or not.
-
-### 1.2 Motivation
-TBD
-
-### 1.3 Project Goal
-
-The goal of this project is to train machine learning algorithms that predicts whether income exceeds $50K/yr based on census data and then compare their performance.
+This report is prepared to fulfill the completion requirement of the **HavardX PH125.9x Data Science Capstone** course. In this project, an income classifier prediction system is created using the US Census 1994 dataset. A classifier system is a subclass of an information filtering system that seeks to classify people using demographics to predict whether a person will earn an annual income over 50K dollars or not.
 
 
-### 1.4 Key steps performed
+### 1.2 Project Goal
+
+The goal of this project is to train machine learning algorithms that predicts whether income exceeds $50K per annum based on census data and then compare their performance with other prediction models.
+
+
+### 1.3 Key steps performed
 
 Following are the key steps performed in this project:
 
  * Importing the dataset and setup
- * Spliting datasets
  * Data wrangling
  * Exploratory data analysis and visualization 
+ * Spliting the curated dataset
  * Creating and tuning predective models
- * Evaluating models based on validation dataset
  * Reporting results 
 
 \pagebreak
 
 # 2. Data and setup
 
-The first step in the whole process is to import and setup data including splitting it in appropriate sub-datasets. 
+The first step in the whole process is to import and setup data, before performing any data wrangling.
 
 ### 2.1 Adult Census Income DataSet
 
-Let's start with the dataset, as per course instruction, Machine Learning analyses friendly **Adult Census Income** dataset, from UCI's curated list of datasets, is used. The data was extracted from the 1994 Census bureau database by Ronny Kohavi and Barry Becker (Data Mining and Visualization, Silicon Graphics). The dataset is then cleaned considering the following criteria: 
+Let's start with the dataset, as per course instruction, Machine Learning analyses friendly **Adult Census Income** dataset, provided by UCI is used. The data was extracted from the 1994 Census bureau database by Ronny Kohavi and Barry Becker (Data Mining and Visualization, Silicon Graphics). The dataset is then cleaned considering the following criteria: 
 
  - age > 16
  - adjusted gross income > $100
  - final weighting > 1
  - working hours per week > 0
 
-This data set can be found and downloaded here:
+This dataset can be found and downloaded here:
 
 * Adult Census Income dataset:           http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data
 
@@ -76,90 +70,98 @@ To assist with our data import and initial setup, several packages from *CRAN* i
 
 
 ```{r data import and initial setup}
-##########################
-# to import and setup data
-##########################
-# Install requested packages if not found
-if (!require(tidyverse))
-  install.packages("tidyverse", repos = "http://cran.us.r-project.org")
-if (!require(caret))
-  install.packages("caret", repos = "http://cran.us.r-project.org")
-if (!require(data.table))
-  install.packages("data.table", repos = "http://cran.us.r-project.org")
-if (!require(dplyr))
-  install.packages("dplyr")
-if (!require(tidyr))
-  install.packages("tidyr")
-if (!require(e1071))
-  install.packages("e1071", , dependencies=TRUE, 
-                   repos = "http://cran.us.r-project.org")
+    ####################################################
+    # to import and setup data
+    ####################################################
 
-# Load libraries
-library(tidyverse)
-library(caret)
-library(e1071)
-library(ggplot2)
-library(randomForest)
-library(hexbin)
-library(lubridate)
-library(knitr)
-library(kableExtra)
-# Adult Census Income dataset
-# http://archive.ics.uci.edu/ml/machine-learning-databases/adult
-datafile <- "Income.RData"
-# Check if datafile is already downloaded
-if (!file.exists("Income.RData"))
-{
-  fileURL <-
-    "http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data"
-  
-  destfile_adult <- "./dataset/adult.data"
-  
-  # Download only if destination data file - adult.data
-  # is not found on the dataset directory folder
-  if (!file.exists(destfile_adult))
-  {
-    # Create dataset folder file if it doesn't exists
-    if (!dir.exists("./dataset"))
+    # Install requested packages if not found
+    if (!require(tidyverse))
+      install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+    if (!require(caret))
+      install.packages("caret", repos = "http://cran.us.r-project.org")
+    if (!require(data.table))
+      install.packages("data.table", repos = "http://cran.us.r-project.org")
+    if (!require(e1071))
+      install.packages("e1071", dependencies=TRUE, 
+                       repos = "http://cran.us.r-project.org")
+    if (!require(rpart))
+      install.packages("rpart", repos = "http://cran.us.r-project.org")
+    if (!require(rpart.plot))
+      install.packages("rpart.plot", repos = "http://cran.us.r-project.org")
+    if (!require(dplyr))
+      install.packages("dplyr")
+    if (!require(tidyr))
+      install.packages("tidyr")    
+    
+    # Load libraries
+    library(tidyverse)
+    library(caret)
+    library(e1071)
+    library(ggplot2)
+    library(randomForest)
+    library(rpart)
+    library(rpart.plot)
+    library(hexbin)
+    library(lubridate)
+    library(knitr)
+    library(kableExtra)
+
+    # Adult Census Income dataset
+    # http://archive.ics.uci.edu/ml/machine-learning-databases/adult
+
+    # to store objects from memory to the filesystem
+    datafile <- "Income.RData"
+    
+    # to check if datafile is already downloaded
+    if (!file.exists("Income.RData"))
     {
-      dir.create("./dataset")
+      fileURL <-
+        "http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data"
+      
+      destfile_adult <- "./dataset/adult.data"
+      
+      # Download only if destination data file - adult.data
+      # is not found on the dataset directory folder
+      if (!file.exists(destfile_adult))
+      {
+        # Create dataset folder file if it doesn't exists
+        if (!dir.exists("./dataset"))
+        {
+          dir.create("./dataset")
+        }
+        
+        # Download file from url to temp file
+        download.file(fileURL, destfile_adult,  quiet = TRUE)
+        
+        print("Downloading file to the dataset directory")
+        
+      }
+      # to name dataset columns
+      c_names <-
+        c("age", "workclass", "fnlwgt", "education", "education-num", 
+          "marital-status", "occupation", "relationship", "race", "sex", 
+          "capital-gain", "capital-loss", "hours-per-week", "native-country", "income")
+      
+      
+      # to read the data from the file and store in the census_data object
+      census_data <-
+        read.csv(file = "./dataset/adult.data", header = FALSE, 
+                 col.names = c_names, stringsAsFactors = T, strip.white = TRUE)
+      
+      # replace . in the columns names
+      colnames(census_data) <- str_replace_all(colnames(census_data), "\\.", "_")
+      
+      # to Save census_data object to datafile
+      save(census_data, file = datafile)
+      
+      # Remove unused objects from the memory
+      rm(c_names, fileURL, datafile, destfile_adult)
+      
+    } else {
+      # lo Load the datafile if it already exists
+      load(datafile)
     }
-    
-    # Download file from url to temp file
-    download.file(fileURL, destfile_adult,  quiet = TRUE)
-    print("Downloading file to the dataset directory")
-    
-  }
-  
-  c_names <-
-    c(
-      "age", "workclass", "fnlwgt", "education", "education-num", 
-      "marital-status", "occupation", "relationship", "race", "sex", 
-      "capital-gain", "capital-loss", "hours-per-week", "native-country", "income"
-    )
-  
-  
-  # read the data from the file and store in the census_data object
-  census_data <-
-    read.csv(file = "./dataset/adult.data", header = FALSE, 
-             col.names = c_names, stringsAsFactors = T, strip.white = TRUE)
-  
-  # replace . in the columns names
-  colnames(census_data) <- str_replace_all(colnames(census_data), "\\.", "_")
-  
-  # Save census_data object to datafile
-  save(census_data, file = datafile)
-  
-  # Remove unused objects from the memory
-  rm(c_names, fileURL, datafile, destfile_adult)
-  
-} else {
-  # Load the datafile if it already exists
-  load(datafile)
-}
 ```
-
-
 
 <br/>
 
@@ -171,46 +173,24 @@ The next step is to understand the data through a brief data review and then do 
 
 ### 3.1 Initial exploration
 
-Before proceeding further with analysis, examining the data is important. The first step in it is to understand the format and the contents by looking at the few rows.
+Before proceeding further with analysis, examining the data is important. The first step in it, is to understand the format and the contents by looking at the few rows.
 
 ```{r Inital analysis-head}
     # Display first few rows to understand the data structure
-    head(census_data, 5)%>%
-    
-    # to format table with theme
-    kable() %>% 
-    kable_styling(latex_options = c("striped", "hover", "condensed", "scale_down"))
+    glimpse(census_data)
 ```
 
 
 <br/>
 
-The dataset has 32,561 records and 15 attributes
-
-```{r row_columns class, echo=FALSE}
-    
-    # to display class of userId and movieId column in a tabular form
-      # to display number of rows and columns in a tabular form
-      row_cols <- tibble(Rows = nrow(census_data), 
-                             Columns = ncol(census_data))
-      row_cols %>% 
-      
-      # to apply theme to the table
-      kable() %>% 
-      kable_styling(latex_options = c("striped", "hover", "condensed"))
-``` 
-
-<br/>
+The dataset has 32,561 records and 15 attributes.
 
 
 #### Dataset Summary 
 
 ```{r summary, include=TRUE}
-    # Summary of the census_data_train dataset
-    summary(census_data)%>%
-    
-    kable() %>% 
-    kable_styling(latex_options = c("striped", "hover", "condensed", "scale_down"))
+    # Summary of the dataset
+    summary(census_data)
 ```
 
 <br/>
@@ -242,10 +222,6 @@ Let's check column types and their class
 
 <br/>
 
-
-
-<br/>
-
 #### Factorizing Variables
 # TBD
 In the dataset, columns `userId` and `movieId` contains numeric data and treated as numeric/integer by R. These columns can be converted to factor as this could be used as categorical data; however, in the current scenario it makes more sense to leave it as numeric to keep later computation easier e.g. summarize() function and other numeric calculations can be done easily.
@@ -272,13 +248,15 @@ Let's first check for any duplicate record. The following table shows there are 
 
 ```{r duplicates}
     census_data %>%
-      summarize(no_of_observations = n(),
-                no_of_distinct = n_distinct(.)) %>%
-      mutate(no_of_dup = no_of_observations - no_of_distinct) %>%
-      mutate(pct_dup = round(no_of_dup / no_of_observations * 100, 1)) %>%
+      summarize(record_count = n(),
+                distinct_records = n_distinct(.)) %>%
+      mutate(duplicate_records = record_count - distinct_records) %>%
+      mutate(duplicate_percent = 
+               paste0(round(duplicate_records / record_count * 100, 1), " %")) %>%
       # to format table with theme
       kable() %>%
-      kable_styling(latex_options = c("striped", "hover", "condensed")) 
+      kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+      row_spec(0, bold = T)
 
 ```
 
@@ -287,46 +265,54 @@ Let's first check for any duplicate record. The following table shows there are 
 
 #### Missing Data
 
-By closely looking at the data, it can be observed that there are columns with value "?". This is also supported by the dataset details available on UCI wesite that **unknown** values are labelled as **?**. 
+By closely looking at the data, it can be observed that there are columns with value "?". This is also supported by the dataset details available on UCI website that **unknown** values are labelled as **?**. 
 
-As it can be seen from the below table, there are 2,399 incomplete records (~7.4%). Specifically, there are missing values in occupation, workclass and native_country, which accounts for 5.7%, 5.6% and 1.8% of the total records respectively.
+As it can be seen from the below table, there are 2,399 incomplete records. Precisely, there are missing values in occupation, workclass, and native_country columns. The table below displays the missing columns and record statistics.
 
 ```{r missing data}
     #to check if any missing value marked with NA
       anyNA(census_data)
-    
+
     # to check missing values labeled as "?"
-    total_missing <-
+
+    # first check for the records with any missing value
+    missing_count_tbl <-
       map_df(census_data, ~ str_detect(., pattern = "\\?")) %>%
       rowSums() %>%
       tbl_df() %>%
       filter(value > 0) %>%
-      summarize(no_of_missing = n()) %>%
-      filter(no_of_missing > 1) %>%
-      mutate(pct_missing = round(no_of_missing / nrow(census_data) * 100, 1),
-             variable = "all variables") %>%
+      summarize(missing_count = n()) %>%
 
-      select(variable, no_of_missing, pct_missing)
-    
-    
-    map_df(census_data, ~ sum(str_detect(., pattern = "\\?"))) %>%
+      mutate(missing_percent =
+               paste0(round(missing_count / nrow(census_data) * 100, 1), "%"),
+             Column = "Record with any missing columns") %>% 
 
-      gather(variable, no_of_missing, 1:15) %>%
-      mutate(pct_missing = round(no_of_missing / nrow(census_data) * 100, 1)) %>%
-      bind_rows(total_missing) %>%
-      filter(no_of_missing > 1) %>%
-      arrange(desc(no_of_missing)) %>%
+      select(Column, missing_count, missing_percent)
+    
+      # now check for individual columns with missing values
+      # and bind it with the existing table
+    
+      map_df(census_data, ~ sum(str_detect(., pattern = "\\?"))) %>%
+
+      gather(Column, missing_count, 1:15) %>%
+      mutate(missing_percent = 
+               paste0(round(missing_count / nrow(census_data) * 100, 1), "%")) %>%
+      bind_rows(missing_count_tbl) %>%
+      # filter-out columns with no missing value
+      filter(missing_count > 1) %>%
+      # arrange rows by missing count
+      arrange(desc(missing_count)) %>%
       # to format table with theme
       kable() %>%
       kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
-      row_spec(1:1, color = "white", background = "#D7261E")
+      row_spec(0, bold = T) 
 ```
 
 
 
 #### Impute missing values
 
-To prepare the dataset for analysis, getting rid if missing values in an important step. The method is by replacing the missing values with the mean for numerical variables; however, it makes more sense to remove records with missing values for categorical attribtes using the following code:
+To prepare the dataset for analysis, getting rid if missing values in an important step. The easiest method is to replace the missing values with the mean for numerical variables; however, it makes more sense to remove records with missing values for categorical attribtes using the following code:
 
 
 ```{r impute_missing}
@@ -346,10 +332,35 @@ To prepare the dataset for analysis, getting rid if missing values in an importa
 
 <br/>
 
+#### Combine Marital Status column catagories
 
-#### Education and Education_Num columns
+Next, collalte `marital_status` column values into 3 categories - Married, Not-married, Never-married using the following code:
 
-`education` and `education_num` variables represents the same data with `education_num` as ordinal representation. We can get rid of `education_num` for cleaning the data using the following code:
+
+```{r marital_status}
+    # to combine the column values catagories 
+    census_data$marital_status <- as.character(census_data$marital_status)
+    
+    # to create two new categories, Never-married is already present
+    Married <- c("Married-AF-spouse", "Married-civ-spouse", "Married-spouse-absent")
+    Notmarried <- c("Divorced","Separated", "Widowed")
+
+    # to update the marital_status column with the new catagories    
+    census_data$marital_status[census_data$marital_status %in% Married] <-
+      "Married"
+    census_data$marital_status[census_data$marital_status %in% Notmarried] <-
+      "Not-married"
+    
+    # to display the table
+    table(census_data$marital_status) %>%
+      kable() %>%
+      kable_styling(latex_options = c("striped", "hover", "condensed"))
+```
+
+
+#### Remove Education_Num column
+
+`education` and `education_num` variables represent the same data with `education_num` as ordinal representation. We can get rid of `education_num` to clean the data using the following code:
  
 
 ```{r education_num}
@@ -361,9 +372,9 @@ To prepare the dataset for analysis, getting rid if missing values in an importa
 
 <br/>
 
-#### Capital Gain and Capital Loss columns
+#### Combine Capital Gain and Capital Loss columns
 
-Next, the `capital_gain` and  `capital_loss` columns can be combined into a single colum `capital`. Further, `capital_gain` and  `capital_loss` columns can be removed to aid the analysis, using the following code:
+Next, the `capital_gain` and  `capital_loss` columns can be combined into a single column `capital`. Further, `capital_gain` and  `capital_loss` columns can be removed to aid the analysis, using the following code:
 
 
 ```{r capital}
@@ -379,9 +390,9 @@ Next, the `capital_gain` and  `capital_loss` columns can be combined into a sing
 
 <br/>
 
-#### Final Weight column
+#### Remove Final Weight column
 
-The final weight is represented by `fnlwgt` column, adjusts the weight as per population size of number of people in the census data.For example, a record gets a high weight if the proportion of such samples is comparatively small in the overall population and vice-versa. This is not useful in the analysis, hence, can be removed.
+The final weight is represented by `fnlwgt` column, adjusts the weight as per population size of the number of people in the census data. For example, a record gets a high weight if the proportion of such samples is comparatively small in the overall population and vice-versa. This is not useful in the analysis, hence, can be removed.
 
 
 ```{r fnlwgt}
@@ -390,40 +401,16 @@ The final weight is represented by `fnlwgt` column, adjusts the weight as per po
       select(-fnlwgt)
 ```
 
-#### Combine Marital Status column catagories
-
-Next, cobmine `marital_status` column values into 3 categories - Married, Not-married, Never-married using the following code:
-
-
-```{r marital_status}
-    # to combine the column values catagories 
-    census_data$marital_status <- as.character(census_data$marital_status)
-
-    Married <- c("Married-AF-spouse", "Married-civ-spouse", "Married-spouse-absent")
-    Notmarried <- c("Divorced","Separated", "Widowed")
-
-    # to update the marital_status column with the new catagories    
-    census_data$marital_status[census_data$marital_status %in% Married] <-
-      "Married"
-    census_data$marital_status[census_data$marital_status %in% Notmarried] <-
-      "Not-married"
-    
-
-    # to display the table
-    table(census_data$marital_status) %>%
-      kable() %>%
-      kable_styling(latex_options = c("striped", "hover", "condensed"))
-```
 
 
 #### Combine Native Country column catagories
 
-There are too many categories in `native_country` column, it can be reduced to their regions and key countries.
-The countries are categorized among their respective regions and leaving key countries such as the US to see if native to the countries make any difference to the income prediction.
+There are too many categories in `native_country` column, it can be reduced to their respective regions and key countries can be kept. The countries are categorized among their respective regions and leaving key countries such as the US to see if native to the countries make any difference to the income prediction.
 
 ```{r native_country}
     # to combine the column values catagories 
 
+    # following are the new catogories
     LatinAmerica <- c("Dominican-Republic","Guatemala","Haiti","Honduras",
                       "Jamaica","Mexico","Nicaragua", "Outlying-US(Guam-USVI-etc)", 
                       "Puerto-Rico","Trinadad&Tobago","Cuba")
@@ -476,6 +463,7 @@ Similarly, categories in `education` column can be combined into a fewer columns
 ```{r education}
     # to combine the column values catagories 
 
+    # No-college and Associates are the new additonal categories
     census_data$education = gsub("^10th", "No-college", census_data$education)
     census_data$education = gsub("^11th", "No-college", census_data$education)
     census_data$education = gsub("^12th", "No-college", census_data$education)
@@ -485,6 +473,7 @@ Similarly, categories in `education` column can be combined into a fewer columns
     census_data$education = gsub("^9th", "No-college", census_data$education)
     census_data$education = gsub("^Assoc-acdm", "Associates", census_data$education)
     census_data$education = gsub("^Assoc-voc", "Associates", census_data$education)
+
     census_data$education = gsub("^Bachelors", "Bachelors", census_data$education)
     census_data$education = gsub("^Doctorate", "Doctorate", census_data$education)
     census_data$education = gsub("^HS-Grad", "HS-Graduate", census_data$education)
@@ -493,7 +482,7 @@ Similarly, categories in `education` column can be combined into a fewer columns
     census_data$education = gsub("^Prof-school", "Prof-School", census_data$education)
     census_data$education = gsub("^Some-college", "Some-college", census_data$education)
     
-        # to display the data in a tabular form
+    # to display the data in a tabular form
     table(census_data$education) %>%
           kable() %>%
           kable_styling(latex_options = c("striped", "hover", "condensed"))
@@ -501,27 +490,25 @@ Similarly, categories in `education` column can be combined into a fewer columns
 ```
 Please note: There is a weird space "^" is observed in education column values, so *gsub* is used to do string replace for values.
 
-#### Combine Workclass column catagories
+#### Combine Workclass column categories 
 
-Next, categories in `workclass` column can be combined into fewer catogories as follows:
+Next, categories in `workclass` column can be combined into fewer categories as follows:
 
 
 ```{r workclass}
     # to combine the column values catagories 
-
+    # Not-Working and Self-Employed are two additional categories
     census_data$workclass = gsub("^Without-pay", "Not-Working", census_data$workclass)
     census_data$workclass = gsub("^Never-worked", "Not-Working", census_data$workclass)
     census_data$workclass = gsub("^Self-emp-not-inc", "Self-Employed", census_data$workclass)
     census_data$workclass = gsub("^Self-emp-inc", "Self-Employed", census_data$workclass)
     
-        # to display the data in a tabular form
+    # to display the data in a tabular form
     table(census_data$workclass) %>%
           kable() %>%
           kable_styling(latex_options = c("striped", "hover", "condensed"))
 
 ```
-
-
 
 
 \pagebreak
@@ -532,82 +519,158 @@ The next step is to perform exploratory data analysis on the tidy data by utiliz
 
 #### Age vs income
 
-The chart shows that users have a preference to rate movies rather higher than lower. 4.0 is the most common rating, followed by 3.0 and 5.0. 0.5 is the least preferable rating and there is no movie with a 0.0 rating.
-
-The difference in the median and mean noted in the *Summary and Average Ratings* section above also supports the negative skewness slope of the distribution towards higher ratings.
+The chart shows that people who are older tends to earn more, specifically with the age group between 32 to 40 years. On the other hand, people with an age around 25 years earns less than 5k per annum.
 
 ```{r age_income}
+    # to plot density graph for age and income
     ggplot(census_data, aes(x = age, color = income, fill = income)) +
       geom_density(alpha = 0.8) +
+      # to provide a title, x, and y axis labels
       labs(x = "Age", y = "Density",
-        title = "People who are older earn more",
-        subtitle = "Density plot"
+        title = "Age vs income desity graph"
       )
 
+    # to plot a table with median age for both income categories
     census_data %>%
-      dplyr::group_by(income) %>%
-      dplyr::summarise(age = median(age))
+      group_by(income) %>%
+      summarise(Median_age = median(age)) %>%
+      kable("latex", booktabs = T) %>%
+      kable_styling(latex_options = c("striped", "hover", "condensed"))
 ```
+
+
+#### Native Country vs income
+As it is evident from the graph that the country of origin has a bias in the income group. People with native country as the US has the highest proportion of both income groups. All other countries/ regions has negligible proportion, this may be due to the fact that majority of people in the population have the US as their native country. However, people from Asia, Canada, and the UK have higher percent of people earning USD 50k / year in their respective category.
+
+```{r country_income}
+    # to plot native_country vs income
+
+    # first create a plot order as per native_country bar lengths
+    plot_order <-
+      reorder(census_data$native_country, census_data$native_country, length)
+    plot_order <-
+      factor(plot_order, levels = rev(levels(plot_order)))
+    # plot grap using ggplot    
+    ggplot(census_data, aes(plot_order)) +
+      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      # to flip coordinate to adust the text
+      coord_flip() +
+      # to provide a title, x, and y axis labels      
+      labs(x = "Native Country", y = "Count", 
+          title = "Impact of the country of origin on income classification")
+      
+    # to display category proportion as per income distribution
+    prop.table(table(census_data$native_country, census_data$income), 1) * 100
+
+```
+
+
+#### Occupation vs income
+
+It can also be observed from the graph that the people in managerial and professional specialty have highest proportion of earning greater than USD50k / annum. Also, from the table below in both the categories more than 44% earn higher package. It is then followed by Sales and Craft-repair, whereas, the Armed Forces personal has the least proportion earning more than $50k / year.
+
+```{r Occupation_income}
+    # to plot occupation vs income
+
+    # first create a plot order as per occupation bar lengths
+    plot_order <-
+      reorder(census_data$occupation, census_data$occupation, length)
+    plot_order <-
+      factor(plot_order, levels = rev(levels(plot_order)))
+    # plot grap using ggplot    
+    ggplot(census_data, aes(plot_order)) +
+      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      # to flip coordinate to adust the text
+      coord_flip() +
+      # to provide a title, x, and y axis labels      
+      labs(x = "Occupation", y = "Count", 
+           title = "Biased in the income based on occupation")
+
+    # to display category proportion as per income distribution
+    prop.table(table(census_data$occupation, census_data$income), 1) * 100
+
+```
+\pagebreak
+
+#### Education vs income
+
+It can be certainly noticed from the below graph that more educated the person is, the chances of earning $50/annum is higher. People with Prof-School, Doctorate, and Masters education have 74.9%, 74.7%, and 56% proportion in the categories respectively. However, people with No-college level education has least proportion earning more than USD 50k/year.
+
+```{r education_income}
+    # to plot education vs income
+
+    # first create a plot order as per education bar lengths
+    plot_order <-
+      reorder(census_data$education, census_data$education, length)
+    plot_order <-
+      factor(plot_order, levels = rev(levels(plot_order)))
+    # plot grap using ggplot    
+    ggplot(census_data, aes(plot_order)) +
+      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      # to flip coordinate to adust the text
+      coord_flip() +
+      # to provide a title, x, and y axis labels
+      labs(x = "Education Level", y = "Count", 
+           title = "Education bias")
+    
+    # to display category proportion as per income distribution    
+    prop.table(table(census_data$education, census_data$income), 1) * 100
+
+```
+
+
 
 #### Workclass vs income
 
+Next, let's check what would the impact of people's working class on their income, using the following graph. People in Fedral-gov and Self employed have higher percentage in their categories and has a bias on the income groups.
+
 ```{r workclass_income}
-  
+    # to plot workclass vs income
+
+    # first create a plot order as per workclass bar lengths
     plot_order <-
       reorder(census_data$workclass, census_data$workclass, length)
     plot_order <-
       factor(plot_order, levels = rev(levels(plot_order)))
-    
+    # plot grap using ggplot
     ggplot(census_data, aes(plot_order)) +
       geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.5) +
       scale_fill_manual(values = c('#FC4E07','#00AFBB')) +
-    
-      # scale axis to custom range and intervels
-      #scale_y_discrete(limits = c(seq(0,30000,1000))) 
-  
+      # to flip coordinate to adust the text
       coord_flip() +  
       # to provide a title, x, and y axis labels
       labs(x = "Working Class", y = "Count",
-        title = "Income bias based on working class")
-  
+        title = "Working class bias")
+    
+    # to display category proportion as per income distribution 
     prop.table(table(census_data$workclass, census_data$income), 1) * 100
 
  
 ```
 
 
-#### Education vs income
-
-```{r education_income}
-    plot_order <-
-      reorder(census_data$education, census_data$education, length)
-    plot_order <-
-      factor(plot_order, levels = rev(levels(plot_order)))
-    
-    ggplot(census_data, aes(plot_order)) +
-      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
-      coord_flip() +
-     labs(x = "Education Level", y = "Count", title = "People with more education earn more")
-    
-    prop.table(table(census_data$education, census_data$income), 1) * 100
-
-```
-
-
 #### Marital Status vs income
 
+As it can be observed from the below graph the the married people tend to earn more. It is followd by Not-married and Never-married categories.
+
 ```{r maritalstatus_income}
+    # to plot marital_status vs income
+
+    # first create a plot order as per marital_status bar lengths
     plot_order <-
       reorder(census_data$marital_status, census_data$marital_status, length)
     plot_order <-
       factor(plot_order, levels = rev(levels(plot_order)))
-    
+    # plot grap using ggplot    
     ggplot(census_data, aes(plot_order)) +
       geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      # to flip coordinate to adust the text
       coord_flip() +
-       labs(x = "Marital Status", y = "Count", title = "Married people tend to earn more")
+      # to provide a title, x, and y axis labels      
+      labs(x = "Marital Status", y = "Count", 
+           title = "Marital Status vs income")
 
-    
+    # to display category proportion as per income distribution    
     prop.table(table(census_data$marital_status, census_data$income), 1) * 100
 
 ```
@@ -615,57 +678,51 @@ The difference in the median and mean noted in the *Summary and Average Ratings*
 
 #### Race vs income
 
+Asian and White race groups have major proportions of people makeing more that 50k in an year. However, overall proportion of people with White race have more count than combined together.
+
 ```{r Race_income}
+    # to plot race vs income
+
+    # first create a plot order as per race bar lengths
     plot_order <-
       reorder(census_data$race, census_data$race, length)
     plot_order <-
       factor(plot_order, levels = rev(levels(plot_order)))
-    
+    # plot grap using ggplot    
     ggplot(census_data, aes(plot_order)) +
       geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      # to flip coordinate to adust the text
       coord_flip() +
-   labs(x = "Race", y = "Count", title = "There is a bias in income based on race")
+      # to provide a title, x, and y axis labels      
+     labs(x = "Race", y = "Count", 
+          title = "Race bias")
 
-
+    # to display category proportion as per income distribution
     prop.table(table(census_data$race, census_data$income), 1) * 100
 
 ```
 
+#### Gender vs income
 
-
-#### Occupation vs income
-
-```{r Occupation_income}
-    plot_order <-
-      reorder(census_data$occupation, census_data$occupation, length)
-    plot_order <-
-      factor(plot_order, levels = rev(levels(plot_order)))
-    
-    ggplot(census_data, aes(plot_order)) +
-      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
-      coord_flip() +
-      labs(x = "Occupation", y = "Count", title = "There is a bias in the income based on occupation")
-    
-    prop.table(table(census_data$occupation, census_data$income), 1) * 100
-
-```
-
-
-
-#### Sex vs income
+The below table depicts that the men makes more money, it is certainly because of higher proportion of men population.
 
 ```{r Sex_income}
+    # to plot sex vs income
+
+    # first create a plot order as per sex bar lengths
     plot_order <-
       reorder(census_data$sex, census_data$sex, length)
     plot_order <-
       factor(plot_order, levels = rev(levels(plot_order)))
-    
+    # plot grap using ggplot    
     ggplot(census_data, aes(plot_order)) +
       geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      # to flip coordinate to adust the text      
       coord_flip() +
-      labs(x = "Gender", y = "Count", title = "Men earn more")
+      # to provide a title, x, and y axis labels      
+      labs(x = "Gender", y = "Count", title = "Men tends to earn more")
 
-
+    # to display category proportion as per income distribution
     prop.table(table(census_data$sex, census_data$income), 1) * 100
 
 ```
@@ -673,45 +730,35 @@ The difference in the median and mean noted in the *Summary and Average Ratings*
 
 #### Working hours vs income
 
+The below graphs shows that the majority of people works between 35 to 65 hours; with the mean of ~ 45 hours for the people making more than 50k/year.
+
 ```{r hours_income}
+    # plot grap using ggplot
     ggplot(census_data, aes(x = hours_per_week, fill = income, color = income)) +
        geom_bar(alpha = 0.8, position = "fill") +
-         coord_flip() +
-   labs(x = "Hours per Week", y = "Proportion", title = "Men earn more")
-    
-census_data %>% 
-   dplyr::group_by(income) %>% 
-   dplyr::summarise(hours = mean(hours_per_week))
-
-```
-
-
-#### Native Country vs income
-
-```{r country_income}
-
-    plot_order <-
-      reorder(census_data$native_country, census_data$native_country, length)
-    plot_order <-
-      factor(plot_order, levels = rev(levels(plot_order)))
-    
-    ggplot(census_data, aes(plot_order)) +
-      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
+      # to flip coordinate to adust the text  
       coord_flip() +
-      labs(x = "Native Country", y = "Count", 
-          title = "There is a bias in income based on the country of origin")
-      
-prop.table(table(census_data$native_country, census_data$income), 1) * 100
+      # to provide a title, x, and y axis labels  
+      labs(x = "Hours per Week", y = "Proportion", title = "Men earn more")
+    
+    # to plot a table with mean working hours for both income categories
+    census_data %>%
+      group_by(income) %>%
+      summarise(hours = mean(hours_per_week)) %>%
+      kable("latex", booktabs = T) %>%
+      kable_styling(latex_options = c("striped", "hover", "condensed"))
 
 ```
 
-#### Outliers
 
-Outliers are the datapoints that differs significantly from other observations. It may be due to variability in the measurement or due to data error. The larger outliers have a disproportionately large effect on model performance; hence, it is advisable to exclude them from dataset.
+#### Outlier Data points
+
+Outliers are the datapoints that differs significantly from other observations. It may be due to variability in the measurement or due to data errors. The larger outliers have a disproportionately large effect on model performance; hence, it is advisable to exclude them from dataset. In the following sections, attribute specific will be looked upon.
 
 
 #### Outliers: Education level
 
+As it can be seen from the point graph below that there are a few data points (marked with red) are outlier datapoints. It is highly unlikely that the people with age of 20 years and less complete Masters degree. 
 
 
 ```{r age_edul}
@@ -734,13 +781,16 @@ Outliers are the datapoints that differs significantly from other observations. 
     ggtitle("Age vs Education Level")
 ```  
 
+These obscure data points with age less than or equal to 20 years and education as Masters can be removed using the code below.
 
 ```{r filter_age_edul}
     census_data <- census_data %>%
       filter(!(age <= 20 & education == 'Masters'))
 ```  
 
-#### Outliers: 
+#### Outliers: Sex and Relationship
+
+Simlarly, there are ponits in the graph below (marked in red) which are highly unlikely (however, could be possible). For the sake of making analysis simpler these can be removed from the dataset.
 
 ```{r sex_rel}
     census_data %>%
@@ -761,6 +811,7 @@ Outliers are the datapoints that differs significantly from other observations. 
     ggtitle("Gender vs Relationship")
 ```  
 
+These obscure data points with Sex as male and relationship as wife and vice-versa can be removed using the code below.
 
 ```{r filter_sex_rel}
     census_data <- census_data %>%
@@ -769,7 +820,9 @@ Outliers are the datapoints that differs significantly from other observations. 
 ```  
 
 
-#### Outliers: 
+#### Outliers: Hours per week
+
+Furthermore, there are records with working hours more than 40 hours/week for the people with greater than 80 years of age, which is highly unlikely. Even, there are records with 100 hours / week for people with 90 years of age. These records should be removed to aid the analysis and modeling.
 
 ```{r age_hours}
     census_data %>%
@@ -793,13 +846,17 @@ Outliers are the datapoints that differs significantly from other observations. 
 ``` 
 
 
+These outlier data points with age more than and equal to 80 years and working hours greater than 40 hours can be removed using the code below.
+
 ```{r filter_age_hours}
     census_data <- census_data %>%
       filter(!(age >= 80 & hours_per_week >40))
 ```  
 
 
-#### Outliers: 
+#### Outliers: Capital
+
+Moreover, for the Captial attribute it seems as data error, there are many points with 99999 as the Capital which seems suspicious and hence, should be eliminated from the analysis.
 
 ```{r age_capital}
     census_data %>%
@@ -822,6 +879,7 @@ Outliers are the datapoints that differs significantly from other observations. 
     ggtitle("Age vs Capital")
 ``` 
 
+These erroneous data points with Capital more than and equal to 99999 can be removed using the code below.
 
 ```{r filter_age_capital}
     census_data <- census_data %>%
@@ -837,9 +895,15 @@ Now, with the analysis we are ready for modeling the prediction model, this sect
 
 ### 5.1 Spliting dataset: Training and Validation Sets
 
-Let's first split the census_data datasetinto *census_data_train* and *census_data_test* set (20%). The algorithm is developed using the census_data_train and for a final test of the algorithm, income will be predicted on the census_data_test set as if they were unknown. 
+Let's first split the census_data datasetinto *census_data_train* and *census_data_test* set (20%). The algorithms are developed using the census_data_train and census_data_test; and their acurracy and performance is compared based on it.
 
-The following code is used to generate the required datasets. 
+For a final test of the algorithm, income is to be predicted on the **Adult.test** (a separate validation dataset provided by UCI) as if they were unknown. However, to keep the scope of this report limited to the goal of modeling various prediction models, the final test is not discussed here.
+
+Adult.test Dataset: https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test
+
+
+Before splitting the dataset, let's convert the variables to factors as they were converted to numerical/charater to do data analysis and wrangling step.
+
 
 ```{r factorizing}
     # to factoring variables to exclude the unwanted levels
@@ -853,23 +917,25 @@ The following code is used to generate the required datasets.
     #census_data$age <- factor(census_data$age)
     #census_data$capital <- factor(census_data$capital)
     
-          anyNA(census_data)
-          
-        # next remove rows with missing values
+    # let's check if any NA generated due to cleanup activity.
+    anyNA(census_data)
+    # next remove rows with missing values
     census_data <- na.omit(census_data)
 
 ``` 
 
-
+The following code is used to generate the required (sub) datasets.
 
 ```{r split datasets}
     ##############################################################################    
-    # to split datasets into edx, validation, census_data_train, and test_set
+    # to split datasets into census_data_train, and census_data_test
     ##############################################################################
     set.seed(1)
     # Partition the data set into census_data_train and census_data_test dataset
     # with respect to dependent variable income
     # The census_data_test set will be 10% of census_data
+    #census_data <- sample_n(census_data, 6000) ## TBD
+
     test_index <- createDataPartition(census_data$income,
                                       times = 1, p = 0.8, list = FALSE)
     census_data_train <- census_data[test_index, ]
@@ -879,98 +945,187 @@ The following code is used to generate the required datasets.
 ```
 
 
-<br/>
-
 \pagebreak
-
 
 
 ### 5.2 Model 1: Logistic Regression Model
 
 ```{r log_model}
     # to create logistic regression model
-    log_model <- glm(income ~ ., data = census_data_train, family = binomial)
+    log_model <- glm(income ~ ., data = census_data_train, family = binomial(link='logit'))
+    #to loop through various threshold to find the optimal threshold
+    threshold <- seq(0, 1, 0.05)
+    acc <- rep(0, length(threshold))
+    
+    for (i in 1:length(threshold)) {
+        Prediction_log <- predict(log_model, newdata = census_data_test[-11], type = "response")
+        pred_log <- rep("<=50k", length(census_data_test$income))
+        pred_log[Prediction_log > threshold[i]] = ">50k"
+        pred_table <- table(pred_log, census_data_test$income)
+        # to calculate accuracy for each threshhold value
+        acc[i] <- sum(diag(pred_table))/sum(pred_table)
+    }
+   
+    # to plot threshold point vs accuracy
+    plot(acc, main="Threshold Selection", col = "#00AFBB")
 
-    #summary(log_model)
+    # to find the optimal threshhold for which accuracy is maximum
+    threshold[which.max(acc)]
+    # accuracy for the optimal threshhold value
+    log_model_acc <- acc[which.max(acc)]
+
+    #predicted_class <- ifelse(Prediction_log > log_model_acc, ">50K", "<=50K")
     
-    predicted <- predict(log_model, newdata = census_data_test, type = "response")
-    predicted_class <- ifelse(predicted >= 0.5, ">50K", "<=50K")
-    table(predicted_class)
-    
-    proportions <- addmargins(table(census_data_test$income, predicted_class))
-    #log_model_Acc <- confusionMatrix(predicted_class, census_data_test$income)$overall[1]
-    #log_model_Acc
-    
-    round(((4190  +830)/(4190  +830+640  +338))*100, digits=2)
-    
-    #Accuracy is 0.8524 on testing set.
+   # proportions <- addmargins(table(census_data_test$income, predicted_class))
+    #log_model_cm <- confusionMatrix(predicted_class, census_data_test$income)
+    #log_model_cm
+
 ```
 
 
-```{r Accuracy_results, eval= FALSE}
+```{r Accuracy_results}
       # to display Model Accuracy results in a tabular form
       model_results <- tibble(Model = "Logistic Regression Model", 
-                             Dataset = "census_data_test", Accuracy = round(log_model_Acc, digits = 5))
-      model_results %>% 
+                             Dataset = "census_data_test", 
+                             Accuracy = round(log_model_acc * 100, digits = 2))
       
+      model_results %>% 
       # to apply theme to the table
       kable("latex", booktabs = T) %>% 
       kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
-      
+      row_spec(0, bold = T) %>%
+      # to highlight the last row
       row_spec(1:1, bold = T, color = "white", background = "#D7261E")
 ```
 
 
 
-### 5.3 Model 2: Random Forest
+### 5.3 Model 2: Decision Tree Model
+
+```{r dt_model}
+    # to create Decision Tree Model model
+
+    dt_model <-
+      rpart(income ~ ., data = census_data_train, method = 'class')
+    Prediction_dt <-
+      predict(dt_model, newdata = census_data_test[-11], type = 'class')
+    dt_model_cm <-
+      confusionMatrix(Prediction_dt, census_data_test$income)
+    
+    dt_model_cm # TBD
+    
+    # append results to the table      
+    model_results <- bind_rows(model_results, 
+                                tibble(Model = "Decision Tree Model", 
+                                       Dataset = "census_data_test", 
+                                       Accuracy = round(dt_model_cm$overall[1] * 100, 
+                                                        digits = 2)))
+    model_results %>% 
+          kable("latex", booktabs = T)  %>% 
+          kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+          row_spec(0, bold = T) %>%
+          # to highlight the last row
+          row_spec(2:2, bold = T, color = "white", background = "#D7261E")
+    
+    
+    # rpart.plot(dt_model, box.col = c('#FC4E07','#00AFBB'))
+    
+```
+    
+
+
+### 5.4 Model 3: Random Forest
 
 ```{r rf_model}
-    # to create logistic regression model
-
-    set.seed(32423)
+    # to create Random Forest model
+    set.seed(1)
     rf_model <- randomForest(income ~ ., data = census_data_train)
-    print(rf_model)
-    
-    Prediction3 <-
-      predict(rf_model, newdata = census_data_test[, -15], type = 'class')
-    
-    rf_model_Acc <-
-      confusionMatrix(Prediction3, census_data_test$income)$overall[1]
-    
-    rf_model_Acc
 
+    Prediction_rf <-
+      predict(rf_model, newdata = census_data_test[, -11], type = 'class')
+    
+    rf_model_cm <-
+      confusionMatrix(Prediction_rf, census_data_test$income)
+    
+    rf_model_cm #TBD
+
+    # append results to the table      
+    model_results <- bind_rows(model_results, 
+                                tibble(Model = "Ramdom Forest Model", 
+                                       Dataset = "census_data_test", 
+                                       Accuracy = round(rf_model_cm$overall[1] * 100, 
+                                                        digits = 2)))
+    model_results %>% 
+          kable("latex", booktabs = T)  %>% 
+          kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+          row_spec(0, bold = T) %>%
+          # to highlight the last row
+          row_spec(3:3, bold = T, color = "white", background = "#D7261E")
+    
+    
     
 ```
 
 
-### 5.3 Model 3: KNN
+
+### 5.5 Model 4: Support Vector Machine
+
+```{r svn_model}
+    # to create Support Vector Machine model
+    svm_model <- svm(income~., data = census_data_train, cost = 10)
+    pred <- predict(svm_model, census_data_test)
+
+    svm_model_cm <-
+      confusionMatrix(pred, census_data_test$income, positive = ">50K")
+    
+    svm_model_cm # TBD
+
+    # append results to the table      
+    model_results <- bind_rows(model_results, 
+                                tibble(Model = "Support Vector Machine", 
+                                       Dataset = "census_data_test", 
+                                       Accuracy = round(svm_model_cm$overall[1] * 100, 
+                                                        digits = 2)))
+
+    model_results %>% 
+          kable("latex", booktabs = T)  %>% 
+          kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+          row_spec(0, bold = T) %>%
+          # to highlight the last row
+          row_spec(4:4, bold = T, color = "white", background = "#D7261E")
+  
+```
+    
+
+
+### 5.6 Model 5: k Nearest Neighbors
 
 ```{r knn_model, eval=FALSE}
-    # to create logistic regression model
+    # to create KNN model
     log_model <- glm(income ~ ., data = census_data_train, family = "binomial")
     summary(log_model)
-    
-    
+
     predicted <- predict(log_model, newdata = census_data_test, type = "response")
     predicted_class <- ifelse(predicted > 0.5, ">50K", "<=50K")
     proportions <- addmargins(table(census_data_test$income, predicted_class))
-    log_model_Acc <- confusionMatrix(predicted_class, census_data_test$income, positive = ">50K")
-    log_model_Acc
+    log_model_cm <- confusionMatrix(predicted_class, census_data_test$income, positive = ">50K")
+    log_model_cm
     #Accuracy is 0.8524 on testing set.
     
     
     Adult.model <- model.matrix(income~.-1,Adult)
-model.train <- Adult.model[train,]
-model.test <- Adult.model[-train,]
-income.train <- income[train]
-income.test <- income[-train]
-set.seed(1)
-knn.fit1 <- knn(census_data_train, census_data_test, income.train, k = 5)
-knn.table1 <- table(knn.fit1,income.test)
-knn.acc1 <- mean(knn.fit1==Adult.test$income)
-knn.acc1
+    model.train <- Adult.model[train,]
+    model.test <- Adult.model[-train,]
+    income.train <- income[train]
+    income.test <- income[-train]
+    set.seed(1)
+    knn.fit1 <- knn(census_data_train, census_data_test, income.train, k = 5)
+    knn.table1 <- table(knn.fit1,income.test)
+    knn.acc1 <- mean(knn.fit1==Adult.test$income)
+    knn.acc1
     
 ```
+
 
 <br/>
 
@@ -979,20 +1134,16 @@ knn.acc1
 
 The result of RMSE derived from various models is listed below. As we can clearly see there is an improvement as we moved from the basic Average Rating model to the Regularized model. From all the models explored in this project, the **regularized Movie and User Effects model** seems to be the best and the finally proposed model with the lowest RMSE (highlighted in green).
 
-```{r results, eval = FALSE}
-      # to display result tables with RMSE model results 
-      rmse_results %>% 
-      kable("latex", booktabs = T) %>% 
-      kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
-      pack_rows("Basic Prediction Model", 1, 1) %>%
-      pack_rows("Single Predictor Model", 2, 5)  %>%
-      pack_rows("Multipe Predictors Model", 6, 6) %>%
-      pack_rows("Regularized Model", 7, 8) %>%
-      row_spec(0, bold = T) %>%
-      row_spec(8:8, bold = T, color = "white", background = "#3DDB48")
+```{r results}
+      # to display result tables with prediction model results 
+    model_results %>% 
+          kable("latex", booktabs = T)  %>% 
+          kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+          row_spec(0, bold = T) %>%
+          # to highlight the last row
+          row_spec(4:4, bold = T, color = "white", background = "#3DDB48")
 
 ```
-
 
 <br/>
 
@@ -1008,6 +1159,7 @@ The model using the Movie and User effects seems to have the best performance am
 For example, *Genre-specific* effect on a user preference to rate a movie can be further explored. If a user rates movies with Drama genre high, the *Drama* effect for that user can be taken into account while predicting rating as the user is more likely to give higher ratings to movies with Drama as a sub-genre in combined genre Drama|Comedy and vice-versa.
 Such a genre-specific effect can be used along with Movie and User Effects for further improvement. 
 Furthermore, Other more complex modeling approaches such as XGBoost, NNET, etc could be used to further improve the performance.
+
 ### 7.3 Limitations 
 Initially, k-fold cross-validation with k=10 was planned; however, due to computing resource constraint it was not successful. So, a simpler alternative approach to partition provided edx dataset into training and test sets are utilized.
 Also, due to the constraint, more sophisticated models with higher performance didn't succeed and thus not included in this report. Those would require powerful computing machines. 
@@ -1026,7 +1178,7 @@ One such example is splitting single pipe-delimited concatenated `genres` catego
 * https://github.com/jha-r/Harvardx-PH125.9x-Capstone-Census_Income_CYO
 ```{r memory cleanup, echo = FALSE, results = "hide"}
       # Remove objects    
-      rm(Married, Notmarried, LatinAmerica, SouthAmerica, Europe, Asia, SE_Aisa, US, UK, Canada, l)  
+      rm(Married, Notmarried, LatinAmerica, SouthAmerica, Europe, Asia, SE_Aisa, US, UK, Canada)  
       # Call Garbage Collector
       gc()
 ```
@@ -1035,3 +1187,13 @@ One such example is splitting single pipe-delimited concatenated `genres` catego
 write up
 code comments 
 grammar
+
+
+
+Sensitivity : T.P/(T.P + F.N) a.k.a True Positive Rate
+Specificity : T.N/(T.N + F.P)
+SUM : T.P + T.N + F.N + F.P
+Detection Rate : T.P/SUM
+False Positive Rate : 1- Specificity : Probability of False Alarrm
+Prevalence : (T.P + F.N)/SUM
+Accuracy : (T.P + T.N)/SUM : at what percent our model works. a.k.a Observed Accuracy
