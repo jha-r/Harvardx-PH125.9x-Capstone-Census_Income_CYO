@@ -86,6 +86,9 @@ To assist with our data import and initial setup, several packages from *CRAN* i
                        repos = "http://cran.us.r-project.org")
     if (!require(rpart))
       install.packages("rpart", repos = "http://cran.us.r-project.org")
+    if (!require(ranger))
+      install.packages("ranger", dependencies=TRUE, 
+                       repos = "http://cran.us.r-project.org")
     if (!require(rpart.plot))
       install.packages("rpart.plot", repos = "http://cran.us.r-project.org")
     if (!require(dummies))
@@ -102,6 +105,7 @@ To assist with our data import and initial setup, several packages from *CRAN* i
     library(ggplot2)
     library(dummies)
     library(randomForest)
+    library(ranger)
     library(rpart)
     library(rpart.plot)
     library(class)
@@ -949,7 +953,7 @@ Now, with the analysis we are ready for modeling the prediction model, this sect
 
 ### 5.1 Spliting dataset: Training and Validation Sets
 
-Let's first split the census_data datasetinto *census_data_train* and *census_data_test* set (20%). The algorithms are developed using the census_data_train and census_data_test; and their acurracy and performance is compared based on it.
+Let's first split the census_data datasetinto *cd_train* and *cd_test* set (20%). The algorithms are developed using the cd_train and cd_test; and their acurracy and performance is compared based on it.
 
 For a final test of the algorithm, income is to be predicted on the **Adult.test** (a separate validation dataset provided by UCI) as if they were unknown. However, to keep the scope of this report limited to the goal of modeling various prediction models, the final test is not discussed here.
 
@@ -960,33 +964,42 @@ The following code is used to generate the required (sub) datasets.
 
 ```{r split datasets}
     ##############################################################################    
-    # to split datasets into census_data_train, and census_data_test
+    # to split datasets into cd_train, and cd_test
     ##############################################################################
     set.seed(1)
-    # Partition the data set into census_data_train and census_data_test dataset
+    # Partition the data set into cd_train and cd_test dataset
     # with respect to dependent variable income
-    # The census_data_test set will be 10% of census_data
+    # The cd_test set will be 20% of census_data
+
+    census_data <- sample_n(census_data, 3000) ## TBD
 
     #index <- createDataPartition(census_data$income,
-    #                                  times = 1, p = 0.8, list = FALSE)
+    #                                  times = 1, p = 0.8, list = FALSE) # TBD
     
     index <-
       sample(1:nrow(census_data), size = as.integer(nrow(census_data) * 0.8))
     
-    census_data_train <- census_data[index,]
-    census_data_test  <- census_data[-index,]
+    cd_train <- census_data[index,]
+    cd_test  <- census_data[-index,]
+
+```
+
+#### Labels Dataset
+
+```{r extract labels}
+    ##extract 'income' column of dataset to labesls datasets
+    cd_train_labels <- cd_train$income
+    cd_test_labels <- cd_test$income
     
-    ##extract 'income' column of dataset as it will be used as 'cl' argument in knn function. TBD
-    census_data_train_labels <- census_data[index, 56]
-    census_data_test_labels <- census_data[-index, 56]
     
+    cd_train <- cd_train %>%
+      select(-income)
+    cd_test  <- cd_test %>%
+      select(-income)
     
-    dim(census_data_train)
-    dim(census_data_test)
-    dim(census_data_train_labels)
-    dim(census_data_test_labels)
-    
-    
+    dim(cd_train)
+    dim(cd_test)
+
 ```
 
 #### Feature Scaling
@@ -996,12 +1009,12 @@ Next we will scale all the features to be between 0 and 1. This helps speed up l
 
 ```{r feature scaling}
     preprocessor <-
-      preProcess(census_data_train, method = 'range', rangeBounds = c(0, 1))
-    census_data_train <- predict(preprocessor, census_data_train)
-    census_data_test <- predict(preprocessor, census_data_test)
+      preProcess(cd_train, method = 'range', rangeBounds = c(0, 1))
+    cd_train <- predict(preprocessor, cd_train)
+    cd_test <- predict(preprocessor, cd_test)
     
-    glimpse(census_data_train)
-    glimpse(census_data_test)
+    glimpse(cd_train)
+    glimpse(cd_test)
 
 ``` 
 
@@ -1016,34 +1029,40 @@ We can reduce the number of features (dimensions) by performing principal compon
 
 ```{r pca}
     # PCA
-    preprocessor <- preProcess(census_data_train, method = 'pca', thresh = 0.95)
-    census_data_train <- predict(preprocessor, census_data_train)
-    census_data_test <- predict(preprocessor, census_data_test)
+    preprocessor <- preProcess(cd_train, method = 'pca', thresh = 0.95)
+    cd_train <- predict(preprocessor, cd_train)
+    cd_test <- predict(preprocessor, cd_test)
     
-    glimpse(census_data_train)
-    glimpse(census_data_test)
+    glimpse(cd_train)
+    glimpse(cd_test)
 
 ``` 
 
+```{r combine all}
+    cd_train_all <-
+      cbind(cd_train, cd_train_labels)
+     cd_test_all <-
+      cbind(cd_test, cd_test_labels)
+``` 
 
 \pagebreak
 
 
 ### 5.2 Model 1: Logistic Regression Model
 
-```{r log_model, eval=FALSE}
+```{r log_model}
     # to create logistic regression model
-    log_model <- glm(income ~ ., data = census_data_train, family = binomial(link='logit'))
+    log_model <- glm(cd_train_labels ~ ., data = cd_train, family = binomial(link='logit'))
     #to loop through various threshold to find the optimal threshold
     threshold <- seq(0, 1, 0.05)
     acc <- rep(0, length(threshold))
 
-    Prediction_log <- predict(log_model, newdata = census_data_test[-11], type = "response")
+    Prediction_log <- predict(log_model, newdata = cd_test, type = "response")
         
     for (i in 1:length(threshold)) {
-        pred_log <- rep("<=50k", length(census_data_test$income))
-        pred_log[Prediction_log > threshold[i]] = ">50k"
-        pred_table <- table(pred_log, census_data_test$income)
+        pred_log <- rep(0, length(cd_test_labels))
+        pred_log[Prediction_log > threshold[i]] = 1
+        pred_table <- table(pred_log, cd_test_labels)
         # to calculate accuracy for each threshhold value
         acc[i] <- sum(diag(pred_table))/sum(pred_table)
     }
@@ -1054,24 +1073,24 @@ We can reduce the number of features (dimensions) by performing principal compon
     # to find the optimal threshhold for which accuracy is maximum
     threshold[which.max(acc)]
     # accuracy for the optimal threshhold value
-    log_model_acc <- acc[which.max(acc)]
+    log_acc <- acc[which.max(acc)]
 
-    predicted_class <- ifelse(Prediction_log > threshold[which.max(acc)], ">50K", "<=50K")
+    predicted_class <- ifelse(Prediction_log > threshold[which.max(acc)], 1, 0)
   
-   # proportions <- addmargins(table(census_data_test$income, predicted_class))
+   # proportions <- addmargins(table(cd_test$income, predicted_class))
     
-    #log_model_cm <- confusionMatrix(predicted_class, census_data_test$income)
+    #log_model_cm <- confusionMatrix(predicted_class, cd_test$income)
     #log_model_cm
 
 ```
 
 The below code will display the results in a tabular form for easy comparison.
 
-```{r Accuracy_results, eval=FALSE}
+```{r Accuracy_results}
       # to display Model Accuracy results in a tabular form
       model_results <- tibble(Model = "Logistic Regression Model", 
-                             Dataset = "census_data_test", 
-                             Accuracy = round(log_model_acc * 100, digits = 2))
+                             Dataset = "cd_test", 
+                             Accuracy = round(log_acc * 100, digits = 2))
       
       model_results %>% 
       # to apply theme to the table
@@ -1086,26 +1105,34 @@ The below code will display the results in a tabular form for easy comparison.
 
 ### 5.3 Model 2: Decision Tree Model
 
-```{r dt_model, eval=FALSE}
+```{r dt_model}
     # to create Decision Tree Model model
 
+    # dt_model <-
+    #   rpart(cd_train_labels ~ ., data = cd_train_all, method = 'class')
+
     dt_model <-
-      rpart(income ~ ., data = census_data_train, method = 'class')
+      train(cd_train_labels ~ ., data = cd_train_all, method = "rpart")
+
     Prediction_dt <-
-      predict(dt_model, newdata = census_data_test[-11], type = 'class')
-    dt_model_cm <-
-      confusionMatrix(Prediction_dt, census_data_test$income)
+      predict(dt_model, newdata = cd_test)
+    # dt_model_cm <-
+    #   confusionMatrix(Prediction_dt, cd_test_labels)
+    # 
+    # dt_model_cm # TBD
     
-    dt_model_cm # TBD
+    dt_acc <-
+      mean(round(as.numeric(Prediction_dt)) == cd_test_labels)
     
-    # append results to the table      
-    model_results <- bind_rows(model_results, 
-                                tibble(Model = "Decision Tree Model", 
-                                       Dataset = "census_data_test", 
-                                       Accuracy = round(dt_model_cm$overall[1] * 100, 
+
+    # append results to the table
+    model_results <- bind_rows(model_results,
+                                tibble(Model = "Decision Tree Model",
+                                       Dataset = "cd_test",
+                                       Accuracy = round(dt_acc * 100,
                                                         digits = 2)))
-    model_results %>% 
-          kable("latex", booktabs = T)  %>% 
+    model_results %>%
+          kable("latex", booktabs = T)  %>%
           kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
           row_spec(0, bold = T) %>%
           # to highlight the last row
@@ -1120,27 +1147,32 @@ The below code will display the results in a tabular form for easy comparison.
 
 ### 5.4 Model 3: Random Forest
 
-```{r rf_model, eval=FALSE}
+```{r rf_model}
     # to create Random Forest model
-    set.seed(1)
-    rf_model <- randomForest(income ~ ., data = census_data_train)
+
+    #set.seed # TBD
+    rf_model <-
+      ranger(cd_train_labels ~ ., data = cd_train_all, num.trees = 100)
 
     Prediction_rf <-
-      predict(rf_model, newdata = census_data_test[, -11], type = 'class')
+      predict(rf_model, cd_test_all)
     
-    rf_model_cm <-
-      confusionMatrix(Prediction_rf, census_data_test$income)
+    rf_acc <-
+      mean(round(as.numeric(Prediction_rf$predictions)) == cd_test_labels)
     
-    rf_model_cm #TBD
+   # rf_model_cm <-
+    #  confusionMatrix(Prediction_rf, cd_test_all$income)
+    
+  #  rf_model_cm #TBD
 
-    # append results to the table      
-    model_results <- bind_rows(model_results, 
-                                tibble(Model = "Ramdom Forest Model", 
-                                       Dataset = "census_data_test", 
-                                       Accuracy = round(rf_model_cm$overall[1] * 100, 
+    # append results to the table
+    model_results <- bind_rows(model_results,
+                                tibble(Model = "Ramdom Forest Model",
+                                       Dataset = "cd_test",
+                                       Accuracy = round(rf_acc * 100,
                                                         digits = 2)))
-    model_results %>% 
-          kable("latex", booktabs = T)  %>% 
+    model_results %>%
+          kable("latex", booktabs = T)  %>%
           kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
           row_spec(0, bold = T) %>%
           # to highlight the last row
@@ -1154,25 +1186,31 @@ The below code will display the results in a tabular form for easy comparison.
 
 ### 5.5 Model 4: Support Vector Machine
 
-```{r svn_model, eval=FALSE}
+```{r svn_model}
     # to create Support Vector Machine model
-    svm_model <- svm(income~., data = census_data_train, cost = 10)
-    pred <- predict(svm_model, census_data_test)
+    svm_model <- svm(cd_train_labels~., data = cd_train, cost = 10)
+    pred <- predict(svm_model, cd_test)
 
-    svm_model_cm <-
-      confusionMatrix(pred, census_data_test$income, positive = ">50K")
     
-    svm_model_cm # TBD
+    svn_acc <-
+      mean(round(as.numeric(pred)) == cd_test_labels)
+    
+    svn_acc
+    
+   # svm_model_cm <-
+    #  confusionMatrix(pred, cd_test_labels, positive = 1)
+    
+    #svm_model_cm # TBD
 
-    # append results to the table      
-    model_results <- bind_rows(model_results, 
-                                tibble(Model = "Support Vector Machine", 
-                                       Dataset = "census_data_test", 
-                                       Accuracy = round(svm_model_cm$overall[1] * 100, 
+    # append results to the table
+    model_results <- bind_rows(model_results,
+                                tibble(Model = "Support Vector Machine",
+                                       Dataset = "cd_test",
+                                       Accuracy = round(svn_acc * 100,
                                                         digits = 2)))
 
-    model_results %>% 
-          kable("latex", booktabs = T)  %>% 
+    model_results %>%
+          kable("latex", booktabs = T)  %>%
           kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
           row_spec(0, bold = T) %>%
           # to highlight the last row
@@ -1187,22 +1225,22 @@ The below code will display the results in a tabular form for easy comparison.
 ```{r knn_model, eval=FALSE}
     # to create KNN model
   
-    NROW(census_data_train)
+    NROW(cd_train)
     
 
-    knn_model <- knn(census_data_train[-11], census_data_test[-11], 
-                     cl=census_data_train_labels, k = 9)
+    knn_model <- knn(cd_train[-11], cd_test[-11], 
+                     cl=cd_train_labels, k = 9)
     
-    knn.table1 <- table(knn_model,census_data_test_labels)
-    #knn.acc1 <- mean(knn_model==census_data_test_labels)
+    knn.table1 <- table(knn_model,cd_test_labels)
+    #knn.acc1 <- mean(knn_model==cd_test_labels)
     knn.acc1 <- function(x){sum(diag(x)/(sum(rowSums(x)))) * 100}
 
     knn.acc1(tab)
 
-    #predicted <- predict(log_model, newdata = census_data_test, type = "response")
+    #predicted <- predict(log_model, newdata = cd_test, type = "response")
     #predicted_class <- ifelse(predicted > 0.5, ">50K", "<=50K")
-    #proportions <- addmargins(table(census_data_test$income, predicted_class))
-    #log_model_cm <- confusionMatrix(predicted_class, census_data_test$income, positive = ">50K")
+    #proportions <- addmargins(table(cd_test$income, predicted_class))
+    #log_model_cm <- confusionMatrix(predicted_class, cd_test$income, positive = ">50K")
     #knn_model_cm
 
 
