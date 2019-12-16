@@ -101,6 +101,7 @@ To assist with our data import and initial setup, several packages from *CRAN* i
     library(randomForest)
     library(rpart)
     library(rpart.plot)
+    library(class)
     library(hexbin)
     library(lubridate)
     library(knitr)
@@ -902,7 +903,7 @@ For a final test of the algorithm, income is to be predicted on the **Adult.test
 Adult.test Dataset: https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test
 
 
-Before splitting the dataset, let's convert the variables to factors as they were converted to numerical/charater to do data analysis and wrangling step.
+Before splitting the dataset, let's convert the variables to factors as they were converted to numerical/charater during the interim data analysis and wrangling step.
 
 
 ```{r factorizing}
@@ -936,12 +937,11 @@ The following code is used to generate the required (sub) datasets.
     # The census_data_test set will be 10% of census_data
     #census_data <- sample_n(census_data, 6000) ## TBD
 
-    test_index <- createDataPartition(census_data$income,
+    index <- createDataPartition(census_data$income,
                                       times = 1, p = 0.8, list = FALSE)
-    census_data_train <- census_data[test_index, ]
-    census_data_test  <- census_data[-test_index, ]
-    # Remove unused objects from the memory
-    rm(test_index)
+    census_data_train <- census_data[index, ]
+    census_data_test  <- census_data[-index, ]
+
 ```
 
 
@@ -956,9 +956,10 @@ The following code is used to generate the required (sub) datasets.
     #to loop through various threshold to find the optimal threshold
     threshold <- seq(0, 1, 0.05)
     acc <- rep(0, length(threshold))
-    
+
+    Prediction_log <- predict(log_model, newdata = census_data_test[-11], type = "response")
+        
     for (i in 1:length(threshold)) {
-        Prediction_log <- predict(log_model, newdata = census_data_test[-11], type = "response")
         pred_log <- rep("<=50k", length(census_data_test$income))
         pred_log[Prediction_log > threshold[i]] = ">50k"
         pred_table <- table(pred_log, census_data_test$income)
@@ -974,16 +975,18 @@ The following code is used to generate the required (sub) datasets.
     # accuracy for the optimal threshhold value
     log_model_acc <- acc[which.max(acc)]
 
-    #predicted_class <- ifelse(Prediction_log > log_model_acc, ">50K", "<=50K")
-    
+    predicted_class <- ifelse(Prediction_log > threshold[which.max(acc)], ">50K", "<=50K")
+  
    # proportions <- addmargins(table(census_data_test$income, predicted_class))
+    
     #log_model_cm <- confusionMatrix(predicted_class, census_data_test$income)
     #log_model_cm
 
 ```
 
+The below code will display the results in a tabular form for easy comparison.
 
-```{r Accuracy_results}
+```{r Accuracy_results, eval=FALSE}
       # to display Model Accuracy results in a tabular form
       model_results <- tibble(Model = "Logistic Regression Model", 
                              Dataset = "census_data_test", 
@@ -1002,7 +1005,7 @@ The following code is used to generate the required (sub) datasets.
 
 ### 5.3 Model 2: Decision Tree Model
 
-```{r dt_model}
+```{r dt_model, eval=FALSE}
     # to create Decision Tree Model model
 
     dt_model <-
@@ -1036,7 +1039,7 @@ The following code is used to generate the required (sub) datasets.
 
 ### 5.4 Model 3: Random Forest
 
-```{r rf_model}
+```{r rf_model, eval=FALSE}
     # to create Random Forest model
     set.seed(1)
     rf_model <- randomForest(income ~ ., data = census_data_train)
@@ -1070,7 +1073,7 @@ The following code is used to generate the required (sub) datasets.
 
 ### 5.5 Model 4: Support Vector Machine
 
-```{r svn_model}
+```{r svn_model, eval=FALSE}
     # to create Support Vector Machine model
     svm_model <- svm(income~., data = census_data_train, cost = 10)
     pred <- predict(svm_model, census_data_test)
@@ -1102,28 +1105,40 @@ The following code is used to generate the required (sub) datasets.
 
 ```{r knn_model, eval=FALSE}
     # to create KNN model
-    log_model <- glm(income ~ ., data = census_data_train, family = "binomial")
-    summary(log_model)
+  
+    NROW(census_data_train)
+    
+    ##extract 'income' column of dataset as it will be used as 'cl' argument in knn function.
 
-    predicted <- predict(log_model, newdata = census_data_test, type = "response")
-    predicted_class <- ifelse(predicted > 0.5, ">50K", "<=50K")
-    proportions <- addmargins(table(census_data_test$income, predicted_class))
-    log_model_cm <- confusionMatrix(predicted_class, census_data_test$income, positive = ">50K")
-    log_model_cm
-    #Accuracy is 0.8524 on testing set.
+    census_data_train_target <- census_data[index,11]
+
+    census_data_test_target <- census_data[-index,11]
     
     
-    Adult.model <- model.matrix(income~.-1,Adult)
-    model.train <- Adult.model[train,]
-    model.test <- Adult.model[-train,]
-    income.train <- income[train]
-    income.test <- income[-train]
-    set.seed(1)
-    knn.fit1 <- knn(census_data_train, census_data_test, income.train, k = 5)
-    knn.table1 <- table(knn.fit1,income.test)
-    knn.acc1 <- mean(knn.fit1==Adult.test$income)
-    knn.acc1
+    dim(census_data_train)
+     dim(census_data_test)
+      dim(census_data_train_target)
+       dim(census_data_test_target)
     
+    
+    knn_model <- knn(census_data_train[-11], census_data_test[-11], 
+                     cl=census_data_train_target, k = 9)
+    
+    knn.table1 <- table(knn_model,census_data_test_target)
+    #knn.acc1 <- mean(knn_model==census_data_test_target)
+    knn.acc1 <- function(x){sum(diag(x)/(sum(rowSums(x)))) * 100}
+
+    knn.acc1(tab)
+
+    #predicted <- predict(log_model, newdata = census_data_test, type = "response")
+    #predicted_class <- ifelse(predicted > 0.5, ">50K", "<=50K")
+    #proportions <- addmargins(table(census_data_test$income, predicted_class))
+    #log_model_cm <- confusionMatrix(predicted_class, census_data_test$income, positive = ">50K")
+    #knn_model_cm
+
+
+    
+        
 ```
 
 
@@ -1132,9 +1147,9 @@ The following code is used to generate the required (sub) datasets.
 # 6. Results
 ### 6.1 Modeling result comparison and performance
 
-The result of RMSE derived from various models is listed below. As we can clearly see there is an improvement as we moved from the basic Average Rating model to the Regularized model. From all the models explored in this project, the **regularized Movie and User Effects model** seems to be the best and the finally proposed model with the lowest RMSE (highlighted in green).
+The result of accuracy derived from various models is listed below. As we can clearly see there is an improvement as we moved from Logistic Regression Model model to the Random Forest Model. From all the models explored in this project, the **Random Forest Model** seems to be the best and the finally proposed model with the highest Accuracy (highlighted in green).
 
-```{r results}
+```{r results, eval=FALSE}
       # to display result tables with prediction model results 
     model_results %>% 
           kable("latex", booktabs = T)  %>% 
@@ -1150,7 +1165,7 @@ The result of RMSE derived from various models is listed below. As we can clearl
 # 7. Conclusion
 ### 7.1 Brief summary
 
-The main aim of the project is to develop a recommendation system to predict movie ratings. The provided 10M Adult Census Income dataset is a real-world challenge that seasoned data scientists would have handled. From data setup, data wrangling as well as exploratory analysis and ggplot based visualization graphs to various modeling approaches, the concepts learned throughout the series of courses are implemented. 
+The main aim of the project is to develop a classifier system to predict if a person earns an annual income of greater than 50k. The used Adult Census Income dataset is a real-world challenge that seasoned data scientists would have handled. From data setup, data wrangling as well as exploratory analysis and ggplot based visualization graphs to various modeling approaches, the concepts learned throughout the series of courses are implemented. 
 
 Initially, basic prediction models including Rating Mean and single predictors based models are developed, later more complex multiple predictors models are attempted and finally **regularized Movie and User Effect predictive model** is implemented. A RMSE value of **`r ` ** is attained on validation set which is less than the targeted value.
  
@@ -1187,6 +1202,11 @@ One such example is splitting single pipe-delimited concatenated `genres` catego
 write up
 code comments 
 grammar
+validation_set
+PCA 
+ROC
+Chi Squared
+Coorelation
 
 
 
