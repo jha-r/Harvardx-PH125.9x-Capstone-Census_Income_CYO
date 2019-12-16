@@ -88,6 +88,8 @@ To assist with our data import and initial setup, several packages from *CRAN* i
       install.packages("rpart", repos = "http://cran.us.r-project.org")
     if (!require(rpart.plot))
       install.packages("rpart.plot", repos = "http://cran.us.r-project.org")
+    if (!require(dummies))
+      install.packages("dummies", repos = "http://cran.us.r-project.org")
     if (!require(dplyr))
       install.packages("dplyr")
     if (!require(tidyr))
@@ -98,6 +100,7 @@ To assist with our data import and initial setup, several packages from *CRAN* i
     library(caret)
     library(e1071)
     library(ggplot2)
+    library(dummies)
     library(randomForest)
     library(rpart)
     library(rpart.plot)
@@ -887,24 +890,9 @@ These erroneous data points with Capital more than and equal to 99999 can be rem
       filter(!(capital >= 99999))
 ```  
 
-
-\pagebreak
-
-# 5. Modeling Approach
-
-Now, with the analysis we are ready for modeling the prediction model, this section describes modeling approaches and insights gained before finalizing a target model.
-
-### 5.1 Spliting dataset: Training and Validation Sets
-
-Let's first split the census_data datasetinto *census_data_train* and *census_data_test* set (20%). The algorithms are developed using the census_data_train and census_data_test; and their acurracy and performance is compared based on it.
-
-For a final test of the algorithm, income is to be predicted on the **Adult.test** (a separate validation dataset provided by UCI) as if they were unknown. However, to keep the scope of this report limited to the goal of modeling various prediction models, the final test is not discussed here.
-
-Adult.test Dataset: https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test
-
+#### Factorizing
 
 Before splitting the dataset, let's convert the variables to factors as they were converted to numerical/charater during the interim data analysis and wrangling step.
-
 
 ```{r factorizing}
     # to factoring variables to exclude the unwanted levels
@@ -925,6 +913,49 @@ Before splitting the dataset, let's convert the variables to factors as they wer
 
 ``` 
 
+#### Encoding: One-Hot Encode Factors
+
+```{r encoding}
+    # to factoring variables to exclude the unwanted levels
+    census_data <- dummy.data.frame(census_data)
+    glimpse(census_data)
+
+``` 
+
+
+#### Combine Income columns
+income>50K 
+income<=50K
+2 levels
+
+```{r combine_income}
+    # to keep only a single column called income 
+    census_data <- census_data %>%
+      mutate(income = census_data$'income>50K')
+    
+    # then remove census_data$'income>50K' and census_data$'income<=50K'
+    census_data <-
+      census_data[, -which(names(census_data) %in% c('income>50K', 'income<=50K'))]
+    
+    glimpse(census_data)
+
+``` 
+
+\pagebreak
+
+# 5. Modeling Approach
+
+Now, with the analysis we are ready for modeling the prediction model, this section describes modeling approaches and insights gained before finalizing a target model.
+
+### 5.1 Spliting dataset: Training and Validation Sets
+
+Let's first split the census_data datasetinto *census_data_train* and *census_data_test* set (20%). The algorithms are developed using the census_data_train and census_data_test; and their acurracy and performance is compared based on it.
+
+For a final test of the algorithm, income is to be predicted on the **Adult.test** (a separate validation dataset provided by UCI) as if they were unknown. However, to keep the scope of this report limited to the goal of modeling various prediction models, the final test is not discussed here.
+
+Adult.test Dataset: https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test
+
+
 The following code is used to generate the required (sub) datasets.
 
 ```{r split datasets}
@@ -935,14 +966,64 @@ The following code is used to generate the required (sub) datasets.
     # Partition the data set into census_data_train and census_data_test dataset
     # with respect to dependent variable income
     # The census_data_test set will be 10% of census_data
-    #census_data <- sample_n(census_data, 6000) ## TBD
 
-    index <- createDataPartition(census_data$income,
-                                      times = 1, p = 0.8, list = FALSE)
-    census_data_train <- census_data[index, ]
-    census_data_test  <- census_data[-index, ]
-
+    #index <- createDataPartition(census_data$income,
+    #                                  times = 1, p = 0.8, list = FALSE)
+    
+    index <-
+      sample(1:nrow(census_data), size = as.integer(nrow(census_data) * 0.8))
+    
+    census_data_train <- census_data[index,]
+    census_data_test  <- census_data[-index,]
+    
+    ##extract 'income' column of dataset as it will be used as 'cl' argument in knn function. TBD
+    census_data_train_labels <- census_data[index, 56]
+    census_data_test_labels <- census_data[-index, 56]
+    
+    
+    dim(census_data_train)
+    dim(census_data_test)
+    dim(census_data_train_labels)
+    dim(census_data_test_labels)
+    
+    
 ```
+
+#### Feature Scaling
+Scale Features between 0 and 1
+Next we will scale all the features to be between 0 and 1. This helps speed up learning in a neural network because all of the features are on the same scale.
+
+
+```{r feature scaling}
+    preprocessor <-
+      preProcess(census_data_train, method = 'range', rangeBounds = c(0, 1))
+    census_data_train <- predict(preprocessor, census_data_train)
+    census_data_test <- predict(preprocessor, census_data_test)
+    
+    glimpse(census_data_train)
+    glimpse(census_data_test)
+
+``` 
+
+#### Principal Component Analysis (PCA) to Reduce Dimensionality
+
+Variable Reduction Technique
+ avoid issues like over-fitting in high dimensional space
+ 
+  this method combines highly correlated variables together to form a smaller number of an artificial set of variables which is called “principal components” that account for most variance in the data
+
+We can reduce the number of features (dimensions) by performing principal components analysis. This makes our features completely unintrepretable, but it can improve accuracy and decrease model runtime. We select the number of principal components using a threshold of 95% variance explained.
+
+```{r pca}
+    # PCA
+    preprocessor <- preProcess(census_data_train, method = 'pca', thresh = 0.95)
+    census_data_train <- predict(preprocessor, census_data_train)
+    census_data_test <- predict(preprocessor, census_data_test)
+    
+    glimpse(census_data_train)
+    glimpse(census_data_test)
+
+``` 
 
 
 \pagebreak
@@ -950,7 +1031,7 @@ The following code is used to generate the required (sub) datasets.
 
 ### 5.2 Model 1: Logistic Regression Model
 
-```{r log_model}
+```{r log_model, eval=FALSE}
     # to create logistic regression model
     log_model <- glm(income ~ ., data = census_data_train, family = binomial(link='logit'))
     #to loop through various threshold to find the optimal threshold
@@ -1108,24 +1189,12 @@ The below code will display the results in a tabular form for easy comparison.
   
     NROW(census_data_train)
     
-    ##extract 'income' column of dataset as it will be used as 'cl' argument in knn function.
 
-    census_data_train_target <- census_data[index,11]
-
-    census_data_test_target <- census_data[-index,11]
-    
-    
-    dim(census_data_train)
-     dim(census_data_test)
-      dim(census_data_train_target)
-       dim(census_data_test_target)
-    
-    
     knn_model <- knn(census_data_train[-11], census_data_test[-11], 
-                     cl=census_data_train_target, k = 9)
+                     cl=census_data_train_labels, k = 9)
     
-    knn.table1 <- table(knn_model,census_data_test_target)
-    #knn.acc1 <- mean(knn_model==census_data_test_target)
+    knn.table1 <- table(knn_model,census_data_test_labels)
+    #knn.acc1 <- mean(knn_model==census_data_test_labels)
     knn.acc1 <- function(x){sum(diag(x)/(sum(rowSums(x)))) * 100}
 
     knn.acc1(tab)
