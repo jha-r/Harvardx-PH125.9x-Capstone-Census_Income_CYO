@@ -25,7 +25,7 @@ output:
 
 ### 1.1 Overview
 
-This report is prepared to fulfill the completion requirement of the **HavardX PH125.9x Data Science Capstone** course. In this project, an income classifier prediction system is created using the US Census 1994 dataset. A classifier system is a subclass of an information filtering system that seeks to classify people using demographics to predict whether a person will earn an annual income over 50K dollars or not.
+This report is prepared to fulfill the completion requirement of the **HavardX PH125.9x Data Science Capstone** course. In this project, an income classifier prediction system is created using the US Census 1994 dataset. A classification system is a subclass of an information filtering system that seeks to classify people using demographics to predict whether a person will earn an annual income over 50K dollars or not.
 
 
 ### 1.2 Project Goal
@@ -922,6 +922,7 @@ It can be observed that the income column is also converted into two columns inc
     # then remove census_data$'income>50K' and census_data$'income<=50K'
     census_data <-
       census_data[, -which(names(census_data) %in% c('income>50K', 'income<=50K'))]
+
 ``` 
 
 
@@ -949,7 +950,7 @@ The following code is used to generate the required (sub) datasets.
     # with respect to dependent variable income
     # The cd_test set will be 20% of census_data
 
-    census_data <- sample_n(census_data, 3000) ## TBD
+    census_data <- sample_n(census_data, 10000) ## TBD
     # to create the index with 80% train and 20% test
     
     indextemp <-
@@ -964,6 +965,16 @@ The following code is used to generate the required (sub) datasets.
     
     cd_train <- cd_sub[index,]
     cd_test  <- cd_sub[-index,]
+    
+
+    # index <-
+    #   sample(1:nrow(census_data), size = as.integer(nrow(census_data) * 0.8))
+    # 
+    # cd_train <- census_data[index, ]
+    # cd_test  <- census_data[-index, ]
+    
+    
+    
 ```
 
 #### Labels Dataset
@@ -1007,7 +1018,7 @@ Now, let's perform Principal Component Analysis, it's a variable dimensionality 
  
 ```{r pca}
     # to perform PCA on train and test datasets with threshold of 95% variance
-    preprocessor <- preProcess(cd_train, method = 'pca', thresh = 0.95)
+    preprocessor <- preProcess(cd_train, method = 'pca', threshold = 0.95)
     cd_train <- predict(preprocessor, cd_train)
     cd_test <- predict(preprocessor, cd_test)
     # to check the dataset after performing PCA
@@ -1118,7 +1129,7 @@ The below code will display the results in a tabular form for easy comparison.
 
     Prediction_rf <-
       predict(rf_model, cd_test_all)
-    # to calculate model accuracy    
+    # to calculate model accuracy
     rf_acc <-
       mean(round(as.numeric(Prediction_rf$predictions)) == cd_test_labels)
 
@@ -1205,10 +1216,51 @@ The below code will display the results in a tabular form for easy comparison.
 ```
 
 
+
+###  5.7 Evaluating the selected model on validation dataset
+
+The Logistic Regression Model generated the highest accuracy of **`r paste0(round(log_acc * 100, digits = 2),"%")` ** with an improvement over other models.
+Next, let's check the effectiveness of the model on the validation.
+
+```{r Validation_set}
+    ############################################################################
+      # Predict using Logistic Regression Model on validation set
+    ############################################################################
+
+    threshold =0.5
+    # to create logistic regression model using validation set
+    log_model_val <- glm(income ~ ., data = cd_sub, family = binomial(link='logit'))
+   
+    Prediction <- predict(log_model_val, newdata = cd_validation, type = "response")
+        pred_table <- table(cd_validation$income, Prediction >= threshold)
+
+    # accuracy for the optimal threshhold value
+    log_val_acc <- (sum(diag(pred_table)) / sum(pred_table))
+    
+
+    # append results to the table
+    model_results <- bind_rows(model_results,
+                                tibble(Model = "Logistic Regression Model",
+                                       Dataset = "cd_validation",
+                                       Accuracy = round(log_val_acc * 100,
+                                                        digits = 2)))
+    model_results %>%
+      # to apply theme to the table
+      kable("latex", booktabs = T) %>%
+      kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+      row_spec(0, bold = T) %>%
+      # to highlight the last row
+      row_spec(6:6,bold = T, color = "white", background = "#D7261E")
+    
+    
+```
+
+This model generated the accuracy of **`r paste0(round(log_val_acc * 100, digits = 2),"%")` ** on validation set. Next, we list and compare all the results in the next section.
+
 # 6. Results
 ### 6.1 Modeling result comparison and performance
 
-The results of the accuracy of various models are listed below. There is an improvement as we switch from the Logistic Regression Model to the Random Forest Model, as we can clearly see. The **Random Forest Model** seems to be the best and the ultimately proposed model with the highest accuracy (highlighted in green) of all models explored in this project.
+The results of the accuracy of various models are listed below. There is an improvement as we switch from the Logistic Regression Model to the Random Forest Model, as we can clearly see. The **Logistic Regression Model** seems to be the best and the ultimately proposed model with the highest accuracy (highlighted in green) of all models explored in this project.
 
 ```{r results}
       # to display result tables with prediction model results 
@@ -1227,7 +1279,7 @@ The results of the accuracy of various models are listed below. There is an impr
 
 The main aim of the project is to develop a classifier system to predict if a person earns an annual income of greater than 50k. The used Adult Census Income dataset is a real-world challenge that seasoned data scientists would have handled. From data setup, data wrangling as well as exploratory analysis and ggplot based visualization graphs to various modeling approaches, the concepts learned throughout the series of courses are implemented. 
 
-Initially, Decision Tree, and Support Vector Machine prediction models are developed, later more complex predictive models are attempted. An accuracy of **`r paste0(round(log_acc * 100, digits = 2),"%")` ** is attained with the **Logistic Regression Model**.
+Initially, Decision Tree, and Support Vector Machine prediction models are developed, later more complex predictive models are attempted. An accuracy of **`r paste0(round(log_val_acc * 100, digits = 2),"%")` ** is attained with the **Logistic Regression Model**.
 
 From the analysis, it can be summarized that 'age', 'education', 'hours_per_week', 'sex', and 'occupation' are the most important features.
  
