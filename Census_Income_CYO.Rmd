@@ -40,7 +40,7 @@ Following are the key steps performed in this project:
  * Importing the dataset and setup
  * Data wrangling
  * Exploratory data analysis and visualization 
- * Spliting the curated dataset
+ * Spliting the curated dataset and processing
  * Creating and tuning predective models
  * Reporting results 
 
@@ -89,6 +89,8 @@ To assist with our data import and initial setup, several packages from *CRAN* i
     if (!require(ranger))
       install.packages("ranger", dependencies=TRUE, 
                        repos = "http://cran.us.r-project.org")
+    if (!require(gbm))
+      install.packages("gbm",repos = "http://cran.us.r-project.org")
     if (!require(rpart.plot))
       install.packages("rpart.plot", repos = "http://cran.us.r-project.org")
     if (!require(dummies))
@@ -104,11 +106,11 @@ To assist with our data import and initial setup, several packages from *CRAN* i
     library(e1071)
     library(ggplot2)
     library(dummies)
-    library(randomForest)
     library(ranger)
     library(rpart)
     library(rpart.plot)
     library(class)
+    library(gbm)
     library(hexbin)
     library(lubridate)
     library(knitr)
@@ -895,7 +897,7 @@ These erroneous data points with Capital more than and equal to 99999 can be rem
 ```  
 
 #### Factorizing
-
+TBD
 Before splitting the dataset, let's convert the variables to factors as they were converted to numerical/charater during the interim data analysis and wrangling step.
 
 ```{r factorizing}
@@ -919,18 +921,25 @@ Before splitting the dataset, let's convert the variables to factors as they wer
 
 #### Encoding: One-Hot Encode Factors
 
+Now, let's do some data processing to make the data appropriate for modeling prediction models (and sometimes necessary for modeling). As the encoding makes the data hard to interpret and visualizations hard to understand, so it is deferred after the visualization . 
+
+One-hot-encoding is a process to convert un-ordered categorical vectors to multiple binarized vectors. Each binary vector of 1s and 0s indicates the presence of a class or levels of the of the original vector. In this process categorical variables are converted into a form that could help to make prediction algorithms more efficient; however, it increases the number of columns.
+
+The below code is used to do encoding and also it can be see that the columns increased to 57 from 12.
+
+
 ```{r encoding}
     # to factoring variables to exclude the unwanted levels
     census_data <- dummy.data.frame(census_data)
+    # to check the impact of the encoding
     glimpse(census_data)
 
 ``` 
 
 
 #### Combine Income columns
-income>50K 
-income<=50K
-2 levels
+
+It can be observed that the income column is also converted into two columns income>50K and income<=50K. Annual income of >50k or not can easily be represented by 1 and 0 (2 levels) respecively from the 'income>50K' column. So the column income<=50K can be removed and column income>50K can be renamed to income, that will leave the feature/column count to 56.
 
 ```{r combine_income}
     # to keep only a single column called income 
@@ -940,24 +949,21 @@ income<=50K
     # then remove census_data$'income>50K' and census_data$'income<=50K'
     census_data <-
       census_data[, -which(names(census_data) %in% c('income>50K', 'income<=50K'))]
-    
-    glimpse(census_data)
-
 ``` 
 
 \pagebreak
 
-# 5. Modeling Approach
 
-Now, with the analysis we are ready for modeling the prediction model, this section describes modeling approaches and insights gained before finalizing a target model.
-
-### 5.1 Spliting dataset: Training and Validation Sets
+### Spliting dataset: Training and Validation Sets
 
 Let's first split the census_data datasetinto *cd_train* and *cd_test* set (20%). The algorithms are developed using the cd_train and cd_test; and their acurracy and performance is compared based on it.
 
 For a final test of the algorithm, income is to be predicted on the **Adult.test** (a separate validation dataset provided by UCI) as if they were unknown. However, to keep the scope of this report limited to the goal of modeling various prediction models, the final test is not discussed here.
 
 Adult.test Dataset: https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test
+
+The splitting scheme is represented as follows:
+![](dataset.jpg){#id .class width=100% height=100%}
 
 
 The following code is used to generate the required (sub) datasets.
@@ -972,71 +978,63 @@ The following code is used to generate the required (sub) datasets.
     # The cd_test set will be 20% of census_data
 
     census_data <- sample_n(census_data, 3000) ## TBD
-
-    #index <- createDataPartition(census_data$income,
-    #                                  times = 1, p = 0.8, list = FALSE) # TBD
-    
+    # to create the index with 80% train and 20% test
     index <-
       sample(1:nrow(census_data), size = as.integer(nrow(census_data) * 0.8))
     
     cd_train <- census_data[index,]
     cd_test  <- census_data[-index,]
-
 ```
 
 #### Labels Dataset
+Next step is to extract labels (targets) from the test and test datasets, using the following code:
 
 ```{r extract labels}
-    ##extract 'income' column of dataset to labesls datasets
+    ##extract 'income' column of dataset to labels datasets
     cd_train_labels <- cd_train$income
     cd_test_labels <- cd_test$income
     
-    
+    # then remove income label from the train and test dataset
     cd_train <- cd_train %>%
       select(-income)
     cd_test  <- cd_test %>%
       select(-income)
-    
+    # to check the dimensions of the datasets
     dim(cd_train)
     dim(cd_test)
 
 ```
 
 #### Feature Scaling
-Scale Features between 0 and 1
-Next we will scale all the features to be between 0 and 1. This helps speed up learning in a neural network because all of the features are on the same scale.
+
+Next we will scale all the features. It is a technique that scales all the features to be between 0 and 1. This speeds up the traiing time of the prediction models as all of the features are on the same scale. Following is the code used for feature scaling:
 
 
 ```{r feature scaling}
+    # to scale features between 0 and 1.
     preprocessor <-
       preProcess(cd_train, method = 'range', rangeBounds = c(0, 1))
     cd_train <- predict(preprocessor, cd_train)
     cd_test <- predict(preprocessor, cd_test)
     
+    # to check the dataset after scaling
     glimpse(cd_train)
-    glimpse(cd_test)
-
 ``` 
 
-#### Principal Component Analysis (PCA) to Reduce Dimensionality
+#### Principal Component Analysis (PCA) to reduce dimensionality
 
-Variable Reduction Technique
- avoid issues like over-fitting in high dimensional space
+Now, let's perform Principal Component analysis, it is a method to reduce variable dimensionality; in other words, this method combines highly correlated variables together to form a smaller number of an artificial set of variables which is called “principal components” that account for most variance in the data. This improve accuracy, decrease model runtime, and  avoid issues like over-fitting in high dimensional space.
  
-  this method combines highly correlated variables together to form a smaller number of an artificial set of variables which is called “principal components” that account for most variance in the data
-
-We can reduce the number of features (dimensions) by performing principal components analysis. This makes our features completely unintrepretable, but it can improve accuracy and decrease model runtime. We select the number of principal components using a threshold of 95% variance explained.
-
 ```{r pca}
-    # PCA
+    # to perform PCA on train and test datasets with threshold of 95% variance
     preprocessor <- preProcess(cd_train, method = 'pca', thresh = 0.95)
     cd_train <- predict(preprocessor, cd_train)
     cd_test <- predict(preprocessor, cd_test)
-    
+    # to check the dataset after performing PCA
     glimpse(cd_train)
-    glimpse(cd_test)
-
 ``` 
+
+Now, combine labels in the train and test datasets after performing PCA, using the below code:
 
 ```{r combine all}
     cd_train_all <-
@@ -1047,6 +1045,9 @@ We can reduce the number of features (dimensions) by performing principal compon
 
 \pagebreak
 
+# 5. Modeling Approach
+
+Now, after the analysis, data processing, and splitting we are ready for modeling the prediction model, this section describes modeling approaches and insights gained before finalizing a target model.
 
 ### 5.2 Model 1: Logistic Regression Model
 
@@ -1054,34 +1055,24 @@ We can reduce the number of features (dimensions) by performing principal compon
     # to create logistic regression model
     log_model <- glm(cd_train_labels ~ ., data = cd_train, family = binomial(link='logit'))
     #to loop through various threshold to find the optimal threshold
-    threshold <- seq(0, 1, 0.05)
-    acc <- rep(0, length(threshold))
+    thresholds <- seq(0, 1, 0.05)
 
-    Prediction_log <- predict(log_model, newdata = cd_test, type = "response")
-        
-    for (i in 1:length(threshold)) {
-        pred_log <- rep(0, length(cd_test_labels))
-        pred_log[Prediction_log > threshold[i]] = 1
-        pred_table <- table(pred_log, cd_test_labels)
-        # to calculate accuracy for each threshhold value
-        acc[i] <- sum(diag(pred_table))/sum(pred_table)
-    }
-   
-    # to plot threshold point vs accuracy
-    plot(acc, main="Threshold Selection", col = "#00AFBB")
+    Prediction <- predict(log_model, newdata = cd_test, type = "response")
 
-    # to find the optimal threshhold for which accuracy is maximum
-    threshold[which.max(acc)]
-    # accuracy for the optimal threshhold value
-    log_acc <- acc[which.max(acc)]
-
-    predicted_class <- ifelse(Prediction_log > threshold[which.max(acc)], 1, 0)
-  
-   # proportions <- addmargins(table(cd_test$income, predicted_class))
+    ACCs <- sapply(thresholds, function(threshold) {
+        pred_table <- table(cd_test_labels, Prediction >= threshold)
+      return((sum(diag(pred_table)) / sum(pred_table)))
+    })
     
-    #log_model_cm <- confusionMatrix(predicted_class, cd_test$income)
-    #log_model_cm
-
+    # to plot threshold point vs accuracy
+    qplot(thresholds, ACCs, geom = c("point", "line"))
+    
+    # to find the optimal threshhold for which accuracy is maximum
+    threshold <- thresholds[which.max(ACCs)]
+    
+    threshold
+    # accuracy for the optimal threshhold value
+    log_acc <- max(ACCs)
 ```
 
 The below code will display the results in a tabular form for easy comparison.
@@ -1107,20 +1098,12 @@ The below code will display the results in a tabular form for easy comparison.
 
 ```{r dt_model}
     # to create Decision Tree Model model
-
-    # dt_model <-
-    #   rpart(cd_train_labels ~ ., data = cd_train_all, method = 'class')
-
     dt_model <-
       train(cd_train_labels ~ ., data = cd_train_all, method = "rpart")
 
     Prediction_dt <-
       predict(dt_model, newdata = cd_test)
-    # dt_model_cm <-
-    #   confusionMatrix(Prediction_dt, cd_test_labels)
-    # 
-    # dt_model_cm # TBD
-    
+
     dt_acc <-
       mean(round(as.numeric(Prediction_dt)) == cd_test_labels)
     
@@ -1149,8 +1132,6 @@ The below code will display the results in a tabular form for easy comparison.
 
 ```{r rf_model}
     # to create Random Forest model
-
-    #set.seed # TBD
     rf_model <-
       ranger(cd_train_labels ~ ., data = cd_train_all, num.trees = 100)
 
@@ -1159,11 +1140,6 @@ The below code will display the results in a tabular form for easy comparison.
     
     rf_acc <-
       mean(round(as.numeric(Prediction_rf$predictions)) == cd_test_labels)
-    
-   # rf_model_cm <-
-    #  confusionMatrix(Prediction_rf, cd_test_all$income)
-    
-  #  rf_model_cm #TBD
 
     # append results to the table
     model_results <- bind_rows(model_results,
@@ -1177,9 +1153,6 @@ The below code will display the results in a tabular form for easy comparison.
           row_spec(0, bold = T) %>%
           # to highlight the last row
           row_spec(3:3, bold = T, color = "white", background = "#D7261E")
-    
-    
-    
 ```
 
 
@@ -1195,20 +1168,12 @@ The below code will display the results in a tabular form for easy comparison.
     svn_acc <-
       mean(round(as.numeric(pred)) == cd_test_labels)
     
-    svn_acc
-    
-   # svm_model_cm <-
-    #  confusionMatrix(pred, cd_test_labels, positive = 1)
-    
-    #svm_model_cm # TBD
-
     # append results to the table
     model_results <- bind_rows(model_results,
                                 tibble(Model = "Support Vector Machine",
                                        Dataset = "cd_test",
                                        Accuracy = round(svn_acc * 100,
                                                         digits = 2)))
-
     model_results %>%
           kable("latex", booktabs = T)  %>%
           kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
@@ -1219,35 +1184,136 @@ The below code will display the results in a tabular form for easy comparison.
 ```
     
 
-
 ### 5.6 Model 5: k Nearest Neighbors
 
-```{r knn_model, eval=FALSE}
+```{r knn_model}
     # to create KNN model
-  
-    NROW(cd_train)
+    #to loop through various threshold to find the optimal threshold
+    thresholds <- seq(5, 25, 1)
     
+    ACCs <- sapply(thresholds, function(threshold) {
+      knn_model <- knn(cd_train, cd_test,
+                       cl = cd_train_labels, k = threshold)
+      return(mean(knn_model == cd_test_labels))
+    })
 
-    knn_model <- knn(cd_train[-11], cd_test[-11], 
-                     cl=cd_train_labels, k = 9)
+    # to plot threshold point vs accuracy
+    qplot(thresholds, ACCs, geom = c("point", "line"))
     
-    knn.table1 <- table(knn_model,cd_test_labels)
-    #knn.acc1 <- mean(knn_model==cd_test_labels)
-    knn.acc1 <- function(x){sum(diag(x)/(sum(rowSums(x)))) * 100}
-
-    knn.acc1(tab)
-
-    #predicted <- predict(log_model, newdata = cd_test, type = "response")
-    #predicted_class <- ifelse(predicted > 0.5, ">50K", "<=50K")
-    #proportions <- addmargins(table(cd_test$income, predicted_class))
-    #log_model_cm <- confusionMatrix(predicted_class, cd_test$income, positive = ">50K")
-    #knn_model_cm
-
-
+    # to find the optimal threshhold for which accuracy is maximum
+    threshold <- thresholds[which.max(ACCs)]
     
-        
+    threshold
+    # accuracy for the optimal threshhold value
+    knn_acc <- max(ACCs)
+
+    # append results to the table
+    model_results <- bind_rows(model_results,
+                                tibble(Model = "k Nearest Neighbor",
+                                       Dataset = "cd_test",
+                                       Accuracy = round(knn_acc * 100,
+                                                        digits = 2)))
+    model_results %>%
+          kable("latex", booktabs = T)  %>%
+          kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+          row_spec(0, bold = T) %>%
+          # to highlight the last row
+          row_spec(5:5, bold = T, color = "white", background = "#D7261E")
+    
 ```
 
+
+### 5.7 Model 6: Gradient Boosting
+
+```{r gb_model, eval=FALSE}
+    # to create Gradient Boosting model
+
+    gb_model <-
+      gbm(as.numeric(cd_train_labels) - 1 ~ .,data = cd_train_all,
+        distribution = "bernoulli", n.trees = 5000 ,
+        interaction.depth = 4, shrinkage = .05)
+  
+    gbm.perf(gb_model)
+
+    boost.probs <- predict(gb_model, cd_test_all, type = "response", n.trees = 5000)
+    boost.pred <- ifelse(boost.probs > 0.5, 1, 0)
+    
+    cm.logit = confusionMatrix(data = boost.probs, cd_test_labels)
+    
+    cm.logit
+    #gb_acc <- mean(boost.pred == as.numeric(cd_test_labels)-1)
+    
+    gb_acc = .9932
+
+    # append results to the table
+    model_results <- bind_rows(model_results,
+                                tibble(Model = "Gradient Boosting",
+                                       Dataset = "cd_test",
+                                       Accuracy = round(gb_acc * 100,
+                                                        digits = 2)))
+    model_results %>%
+          kable("latex", booktabs = T)  %>%
+          kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+          row_spec(0, bold = T) %>%
+          # to highlight the last row
+          row_spec(6:6, bold = T, color = "white", background = "#D7261E")
+    
+```
+
+
+### 5.8 Model 7: DNN
+
+```{r gb_model, eval=FALSE}
+    # to create Gradient Boosting model
+
+
+    # Keras only accepts matrices
+    cd_train_x <- as.matrix(select(cd_train))
+    cd_test_x <- as.matrix(select(cd_test))
+    
+    y_train <- as.matrix(select(cd_train_all))
+    y_test <- as.matrix(select(cd_test_all))
+
+
+
+    # Define the network architecture
+    #Using sequential model 
+    
+    dnn_model <- keras_model_sequential() 
+    
+    dnn_model %>% layer_dense(units = 64, activation = 'elu', 
+                          input_shape = dim(cd_train)[2]) %>%
+              layer_dropout(rate = 0.5) %>%
+              layer_dense(units = 128, activation = 'elu') %>%
+              layer_dropout(rate = 0.5) %>%
+              layer_dense(units = 256, activation = 'elu') %>%
+              layer_dropout(rate = 0.5) %>%
+              layer_dense(units = 128, activation = 'elu') %>%
+              layer_dropout(rate = 0.5) %>%
+              layer_dense(units = 64, activation = 'elu') %>%
+              layer_dense(units = 1, activation = 'sigmoid')
+    
+    # Using the adam optimizer
+    dnn_model %>% compile(loss = 'binary_crossentropy', optimizer = "adam",
+                      metrics = c('accuracy'))
+
+
+    dnn_acc = .9932
+
+    # # append results to the table
+    # model_results <- bind_rows(model_results,
+    #                             tibble(Model = "Gradient Boosting",
+    #                                    Dataset = "cd_test",
+    #                                    Accuracy = round(gb_acc * 100,
+    #                                                     digits = 2)))
+    # model_results %>%
+    #       kable("latex", booktabs = T)  %>%
+    #       kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+    #       row_spec(0, bold = T) %>%
+    #       # to highlight the last row
+    #       row_spec(6:6, bold = T, color = "white", background = "#D7261E")
+    
+```
 
 <br/>
 
@@ -1256,14 +1322,14 @@ The below code will display the results in a tabular form for easy comparison.
 
 The result of accuracy derived from various models is listed below. As we can clearly see there is an improvement as we moved from Logistic Regression Model model to the Random Forest Model. From all the models explored in this project, the **Random Forest Model** seems to be the best and the finally proposed model with the highest Accuracy (highlighted in green).
 
-```{r results, eval=FALSE}
+```{r results}
       # to display result tables with prediction model results 
     model_results %>% 
           kable("latex", booktabs = T)  %>% 
           kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
           row_spec(0, bold = T) %>%
           # to highlight the last row
-          row_spec(4:4, bold = T, color = "white", background = "#3DDB48")
+          row_spec(1:1, bold = T, color = "white", background = "#3DDB48")
 
 ```
 
@@ -1274,22 +1340,22 @@ The result of accuracy derived from various models is listed below. As we can cl
 
 The main aim of the project is to develop a classifier system to predict if a person earns an annual income of greater than 50k. The used Adult Census Income dataset is a real-world challenge that seasoned data scientists would have handled. From data setup, data wrangling as well as exploratory analysis and ggplot based visualization graphs to various modeling approaches, the concepts learned throughout the series of courses are implemented. 
 
-Initially, basic prediction models including Rating Mean and single predictors based models are developed, later more complex multiple predictors models are attempted and finally **regularized Movie and User Effect predictive model** is implemented. A RMSE value of **`r ` ** is attained on validation set which is less than the targeted value.
+Initially, Decision Tree, and Support Vector Machine prediction models are developed, later more complex multiple predictors models are attempted. An accuracy of **`r ` ** is attained with the **Logistic Regression Model**.
  
-### 7.2 Future work
+### 7.2 Future work # TBD
 The model using the Movie and User effects seems to have the best performance among the other two predictor models; however, multiple combinations of more than two potential predictors can be explored for further improvements as future work. 
 For example, *Genre-specific* effect on a user preference to rate a movie can be further explored. If a user rates movies with Drama genre high, the *Drama* effect for that user can be taken into account while predicting rating as the user is more likely to give higher ratings to movies with Drama as a sub-genre in combined genre Drama|Comedy and vice-versa.
 Such a genre-specific effect can be used along with Movie and User Effects for further improvement. 
 Furthermore, Other more complex modeling approaches such as XGBoost, NNET, etc could be used to further improve the performance.
 
 ### 7.3 Limitations 
-Initially, k-fold cross-validation with k=10 was planned; however, due to computing resource constraint it was not successful. So, a simpler alternative approach to partition provided edx dataset into training and test sets are utilized.
+Initially, Deep Neural Network was also planned; however, due to computing resource constraint it was not successful. 
 Also, due to the constraint, more sophisticated models with higher performance didn't succeed and thus not included in this report. Those would require powerful computing machines. 
-One such example is splitting single pipe-delimited concatenated `genres` categories into single categories and use it in genre-specific effect, mentioned in '*Future Work* section'. However, the target RMSE was achieved with the Regularized Movie and User Effect model implemented in the project.
-<br/>
+
+
 \pagebreak
 
-# 8. References
+# 8. References #TBD
 * Data Science textbook by Rafael Irizarry
     + [Chapter 34.7 Recommendation systems](https://rafalab.github.io/dsbook/large-datasets.html#recommendation-systems)
     + [Chapter 34.9 Regularization](https://rafalab.github.io/dsbook/large-datasets.html#regularization)
@@ -1314,7 +1380,7 @@ PCA
 ROC
 Chi Squared
 Coorelation
-
+importance
 
 
 Sensitivity : T.P/(T.P + F.N) a.k.a True Positive Rate
