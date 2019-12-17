@@ -1,7 +1,7 @@
 ---
-title: "HavardX PH125.9x Data Science Capstone CYO Project Report"
+title: "HavardX PH125.9x Adult Census Income - Data Science Capstone CYO Project Report"
 author: "Ravi Jha"
-date: "12/20/2019"
+date: "12/18/2019"
 output:
   pdf_document:
     df_print: kable
@@ -30,7 +30,7 @@ This report is prepared to fulfill the completion requirement of the **HavardX P
 
 ### 1.2 Project Goal
 
-The goal of this project is to train machine learning algorithms that predicts whether income exceeds $50K per annum based on census data and then compare their performance with other prediction models.
+The goal of this project is to train machine learning algorithms (beyond standard linear regression) that predict whether income exceeds $50K per annum based on census data with an accuracy more than 80% and then compares their performance with other prediction models.
 
 
 ### 1.3 Key steps performed
@@ -91,8 +91,6 @@ To assist with our data import and initial setup, several packages from *CRAN* i
                        repos = "http://cran.us.r-project.org")
     if (!require(gbm))
       install.packages("gbm",repos = "http://cran.us.r-project.org")
-    if (!require(rpart.plot))
-      install.packages("rpart.plot", repos = "http://cran.us.r-project.org")
     if (!require(dummies))
       install.packages("dummies", repos = "http://cran.us.r-project.org")
     if (!require(dplyr))
@@ -101,20 +99,18 @@ To assist with our data import and initial setup, several packages from *CRAN* i
       install.packages("tidyr")    
     
     # Load libraries
-    library(tidyverse)
-    library(caret)
-    library(e1071)
-    library(ggplot2)
-    library(dummies)
-    library(ranger)
-    library(rpart)
-    library(rpart.plot)
-    library(class)
-    library(gbm)
-    library(hexbin)
-    library(lubridate)
-    library(knitr)
-    library(kableExtra)
+    library(tidyverse) # to untidy data
+    library(caret) # Classification And Regression
+    library(e1071) # SVM 
+    library(ggplot2) # for plotting graphs
+    library(dummies) # dummy variables (one hot encoder)
+    library(ranger) # fast Random Forest
+    library(rpart) # Decision Tree
+    library(class) # KNN
+    library(hexbin) # plotting
+    library(lubridate) # date
+    library(knitr) # LaTeX pdf
+    library(kableExtra) # LaTeX pdf
 
     # Adult Census Income dataset
     # http://archive.ics.uci.edu/ml/machine-learning-databases/adult
@@ -190,26 +186,21 @@ Before proceeding further with analysis, examining the data is important. The fi
     glimpse(census_data)
 ```
 
-
-<br/>
-
 The dataset has 32,561 records and 15 attributes.
 
 
 #### Dataset Summary 
+Summry of the dataset can be seen by the following snippet:
 
 ```{r summary, include=TRUE}
     # Summary of the dataset
     summary(census_data)
 ```
 
-<br/>
-
 
 #### Column types and class
 
-Let's check column types and their class
-
+Let's check column types and their class.
 
 ```{r Columns}
     # To display dataset column types and summary
@@ -221,31 +212,12 @@ Let's check column types and their class
         "categorical",
         ifelse(variable == "education_num", "categorical", "continuous")
       )) 
-
-        col_type%>%
-      
+    col_type %>%
       # to format table with theme
       kable() %>%
       kable_styling(latex_options = c("striped", "hover", "condensed")) 
 ```
 
-
-<br/>
-
-#### Factorizing Variables
-# TBD
-In the dataset, columns `userId` and `movieId` contains numeric data and treated as numeric/integer by R. These columns can be converted to factor as this could be used as categorical data; however, in the current scenario it makes more sense to leave it as numeric to keep later computation easier e.g. summarize() function and other numeric calculations can be done easily.
-
-```{r userid-movieid class}
-    # to factoring variables to exclude the unwanted levels
-    census_data$workclass <- factor(census_data$workclass)
-    census_data$occupation <- factor(census_data$occupation)
-    census_data$native_country <- factor(census_data$native_country)
-
-``` 
-
-
-<br/>
 
 ### 3.2 Tidying data
 
@@ -257,6 +229,7 @@ Based on the initial understanding further data analysis is required to identify
 Let's first check for any duplicate record. The following table shows there are 24 duplicate rows.
 
 ```{r duplicates}
+    # to check for duplicate records
     census_data %>%
       summarize(record_count = n(),
                 distinct_records = n_distinct(.)) %>%
@@ -275,24 +248,24 @@ Let's first check for any duplicate record. The following table shows there are 
 
 #### Missing Data
 
-By closely looking at the data, it can be observed that there are columns with value "?". This is also supported by the dataset details available on UCI website that **unknown** values are labelled as **?**. 
+By closely looking at the data, it can be observed that there are columns with value "?". This is also supported by the dataset details available on UCI website that **unknown** values are labeled as **?**. 
 
-As it can be seen from the below table, there are 2,399 incomplete records. Precisely, there are missing values in occupation, workclass, and native_country columns. The table below displays the missing columns and record statistics.
+As it can be seen from the below table, there are 2,399 incomplete records. Precisely, there are missing values in `workclass`, `occupation`, and `native_country` columns. The table below displays the missing columns and record statistics.
 
 ```{r missing data}
-    #to check if any missing value marked with NA
+    #to check if any explicit missing value marked with NA
       anyNA(census_data)
 
     # to check missing values labeled as "?"
 
-    # first check for the records with any missing value
+    # first check for the records with any missing value (?)
     missing_count_tbl <-
       map_df(census_data, ~ str_detect(., pattern = "\\?")) %>%
       rowSums() %>%
       tbl_df() %>%
       filter(value > 0) %>%
       summarize(missing_count = n()) %>%
-
+      # to create a table to display the missing count and percent
       mutate(missing_percent =
                paste0(round(missing_count / nrow(census_data) * 100, 1), "%"),
              Column = "Record with any missing columns") %>% 
@@ -324,7 +297,6 @@ As it can be seen from the below table, there are 2,399 incomplete records. Prec
 
 To prepare the dataset for analysis, getting rid if missing values in an important step. The easiest method is to replace the missing values with the mean for numerical variables; however, it makes more sense to remove records with missing values for categorical attribtes using the following code:
 
-
 ```{r impute_missing}
     # first to convert missing values ? to NA
     # for workclass, occupation, and native_country
@@ -344,7 +316,7 @@ To prepare the dataset for analysis, getting rid if missing values in an importa
 
 #### Combine Marital Status column catagories
 
-Next, collalte `marital_status` column values into 3 categories - Married, Not-married, Never-married using the following code:
+Next, collalte `marital_status` column values into 3 categories - *Married, Not-married, Never-married* using the following code:
 
 
 ```{r marital_status}
@@ -397,8 +369,7 @@ Next, the `capital_gain` and  `capital_loss` columns can be combined into a sing
       select(-capital_gain, -capital_loss)
 ```
 
-
-<br/>
+\pagebreak
 
 #### Remove Final Weight column
 
@@ -415,7 +386,7 @@ The final weight is represented by `fnlwgt` column, adjusts the weight as per po
 
 #### Combine Native Country column catagories
 
-There are too many categories in `native_country` column, it can be reduced to their respective regions and key countries can be kept. The countries are categorized among their respective regions and leaving key countries such as the US to see if native to the countries make any difference to the income prediction.
+There are too many categories in `native_country` column, it can be reduced to their respective regions and key countries can be kept. The countries are categorized among their respective regions and leaving key countries such as the *US* to see if native to the countries make any difference to the income prediction.
 
 ```{r native_country}
     # to combine the column values catagories 
@@ -529,7 +500,7 @@ The next step is to perform exploratory data analysis on the tidy data by utiliz
 
 #### Age vs income
 
-The chart shows that people who are older tends to earn more, specifically with the age group between 32 to 40 years. On the other hand, people with an age around 25 years earns less than 5k per annum.
+The chart shows that people who are older tends to earn more, specifically with the age group between 32 to 40 years. On the other hand, majority of the people with an age around 25 years earns less than 50k per annum.
 
 ```{r age_income}
     # to plot density graph for age and income
@@ -550,7 +521,7 @@ The chart shows that people who are older tends to earn more, specifically with 
 
 
 #### Native Country vs income
-As it is evident from the graph that the country of origin has a bias in the income group. People with native country as the US has the highest proportion of both income groups. All other countries/ regions has negligible proportion, this may be due to the fact that majority of people in the population have the US as their native country. However, people from Asia, Canada, and the UK have higher percent of people earning USD 50k / year in their respective category.
+It is evident from the graph that the country of origin has a bias in the income group. People with native country as the US has the highest proportion of both income groups. All other countries/ regions has negligible proportion, this may be due to the fact that majority of people in the population are native to the US. However, people from Asia, Canada, and the UK have higher percent of people earning USD 50k/year in their respective category.
 
 ```{r country_income}
     # to plot native_country vs income
@@ -577,7 +548,7 @@ As it is evident from the graph that the country of origin has a bias in the inc
 
 #### Occupation vs income
 
-It can also be observed from the graph that the people in managerial and professional specialty have highest proportion of earning greater than USD50k / annum. Also, from the table below in both the categories more than 44% earn higher package. It is then followed by Sales and Craft-repair, whereas, the Armed Forces personal has the least proportion earning more than $50k / year.
+It can also be observed from the graph that the people in managerial and professional specialty have highest proportion of earning greater than USD 50k / annum. Also, from the table below in both the categories more than 44% earn higher package. It is then followed by Sales and Craft-repair, whereas, the Armed Forces personal has the least proportion earning more than $50k / year.
 
 ```{r Occupation_income}
     # to plot occupation vs income
@@ -600,11 +571,11 @@ It can also be observed from the graph that the people in managerial and profess
     prop.table(table(census_data$occupation, census_data$income), 1) * 100
 
 ```
-\pagebreak
+
 
 #### Education vs income
 
-It can be certainly noticed from the below graph that more educated the person is, the chances of earning $50/annum is higher. People with Prof-School, Doctorate, and Masters education have 74.9%, 74.7%, and 56% proportion in the categories respectively. However, people with No-college level education has least proportion earning more than USD 50k/year.
+It can be certainly observed from the below graph that more educated the person is, the chances of earning $50/annum is higher. People with Prof-School, Doctorate, and Masters education have 74.9%, 74.7%, and 56% proportion in the categories respectively. However, people with No-college level education has least proportion earning more than USD 50k/year.
 
 ```{r education_income}
     # to plot education vs income
@@ -632,7 +603,7 @@ It can be certainly noticed from the below graph that more educated the person i
 
 #### Workclass vs income
 
-Next, let's check what would the impact of people's working class on their income, using the following graph. People in Fedral-gov and Self employed have higher percentage in their categories and has a bias on the income groups.
+Next, let's check what would be the impact of people's working class on their income, using the following graph. People in Fedral-gov and Self employed have higher percentage in their categories and has a bias on the income groups.
 
 ```{r workclass_income}
     # to plot workclass vs income
@@ -644,8 +615,7 @@ Next, let's check what would the impact of people's working class on their incom
       factor(plot_order, levels = rev(levels(plot_order)))
     # plot grap using ggplot
     ggplot(census_data, aes(plot_order)) +
-      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.5) +
-      scale_fill_manual(values = c('#FC4E07','#00AFBB')) +
+      geom_bar(aes(fill = income), color = "#1380A1", alpha = 0.8) +
       # to flip coordinate to adust the text
       coord_flip() +  
       # to provide a title, x, and y axis labels
@@ -688,7 +658,7 @@ As it can be observed from the below graph the the married people tend to earn m
 
 #### Race vs income
 
-Asian and White race groups have major proportions of people makeing more that 50k in an year. However, overall proportion of people with White race have more count than combined together.
+People with Asian and White as their race groups have major proportions making more that 50k in an year. However, overall proportion of people with White race have more count than combined together.
 
 ```{r Race_income}
     # to plot race vs income
@@ -714,7 +684,7 @@ Asian and White race groups have major proportions of people makeing more that 5
 
 #### Gender vs income
 
-The below table depicts that the men makes more money, it is certainly because of higher proportion of men population.
+The below table depicts that the men makes more money than female, it is certainly because of higher proportion of the men population.
 
 ```{r Sex_income}
     # to plot sex vs income
@@ -763,12 +733,12 @@ The below graphs shows that the majority of people works between 35 to 65 hours;
 
 #### Outlier Data points
 
-Outliers are the datapoints that differs significantly from other observations. It may be due to variability in the measurement or due to data errors. The larger outliers have a disproportionately large effect on model performance; hence, it is advisable to exclude them from dataset. In the following sections, attribute specific will be looked upon.
+Outliers are the datapoints that differ considerably from other observations. It can be attributed to calculation uncertainty or data errors. The larger outliers have an excessively large impact on model performance; thus, removing them from the dataset is advisable. Common attributes will be considered in the following sections.
 
 
 #### Outliers: Education level
 
-As it can be seen from the point graph below that there are a few data points (marked with red) are outlier datapoints. It is highly unlikely that the people with age of 20 years and less complete Masters degree. 
+As it can be seen from the point graph below that there are a few data points (marked with red) are outlier datapoints. It is highly unlikely that the people with age of 20 years and less can complete Masters degree. 
 
 
 ```{r age_edul}
@@ -832,7 +802,7 @@ These obscure data points with Sex as male and relationship as wife and vice-ver
 
 #### Outliers: Hours per week
 
-Furthermore, there are records with working hours more than 40 hours/week for the people with greater than 80 years of age, which is highly unlikely. Even, there are records with 100 hours / week for people with 90 years of age. These records should be removed to aid the analysis and modeling.
+In fact, reports of working hours for people over 80 years of age are more than 40 hours/week, which is highly unlikely. Even for people with 90 years of age, there are records of 100 hours per week. To assist in research and modelling, these documents should be deleted.
 
 ```{r age_hours}
     census_data %>%
@@ -896,11 +866,22 @@ These erroneous data points with Capital more than and equal to 99999 can be rem
       filter(!(capital >= 99999))
 ```  
 
+\pagebreak
+
+
+### Dataset processing and splitting
+
+Before be move to modeling there are other activities (such as encoding etc.) needs to be done which were deferred until visualization as it makes the data hard to interpret and visualizations hard to understand.
+
+
 #### Factorizing
-TBD
-Before splitting the dataset, let's convert the variables to factors as they were converted to numerical/charater during the interim data analysis and wrangling step.
+
+The first step is to check if any variable got changed to 'char' from 'factor' during transient analysis and wrangling steps, if any, convert them back to factors aid next steps in the project.
 
 ```{r factorizing}
+    # to check the current state of the data
+    glimpse(census_data)
+
     # to factoring variables to exclude the unwanted levels
     census_data$workclass <- factor(census_data$workclass)
     census_data$occupation <- factor(census_data$occupation)
@@ -908,22 +889,14 @@ Before splitting the dataset, let's convert the variables to factors as they wer
     census_data$education <- factor(census_data$education)
     census_data$marital_status <- factor(census_data$marital_status)
     
-    #census_data$hours_per_week <- factor(census_data$hours_per_week)
-    #census_data$age <- factor(census_data$age)
-    #census_data$capital <- factor(census_data$capital)
-    
     # let's check if any NA generated due to cleanup activity.
     anyNA(census_data)
-    # next remove rows with missing values
-    census_data <- na.omit(census_data)
 
 ``` 
 
 #### Encoding: One-Hot Encode Factors
 
-Now, let's do some data processing to make the data appropriate for modeling prediction models (and sometimes necessary for modeling). As the encoding makes the data hard to interpret and visualizations hard to understand, so it is deferred after the visualization . 
-
-One-hot-encoding is a process to convert un-ordered categorical vectors to multiple binarized vectors. Each binary vector of 1s and 0s indicates the presence of a class or levels of the of the original vector. In this process categorical variables are converted into a form that could help to make prediction algorithms more efficient; however, it increases the number of columns.
+Now, let's do some data processing to make the data suitable (and often essential) for modeling predictive models.One-hot encoding is a process to convert to multiple binarized vectors from categorical vectors. Each 1s and 0s binary vector indicates the presence of the original vector class or levels. Categorical variables are translated into a type in this method that could help make prediction algorithms more efficient; however, the number of columns is expanded.
 
 The below code is used to do encoding and also it can be see that the columns increased to 57 from 12.
 
@@ -951,19 +924,18 @@ It can be observed that the income column is also converted into two columns inc
       census_data[, -which(names(census_data) %in% c('income>50K', 'income<=50K'))]
 ``` 
 
-\pagebreak
 
-
-### Spliting dataset: Training and Validation Sets
+#### Spliting dataset: Training and Validation Sets
 
 Let's first split the census_data datasetinto *cd_train* and *cd_test* set (20%). The algorithms are developed using the cd_train and cd_test; and their acurracy and performance is compared based on it.
 
-For a final test of the algorithm, income is to be predicted on the **Adult.test** (a separate validation dataset provided by UCI) as if they were unknown. However, to keep the scope of this report limited to the goal of modeling various prediction models, the final test is not discussed here.
+For a final test of the algorithm, income is to be predicted on the **Adult.test** (a separate validation dataset provided by UCI) as if they were unknown. However, to keep the scope of this report limited to the goal of modeling various prediction models, the final test on Adult.test (validation) dataset is not discussed here.
 
-Adult.test Dataset: https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test
+**Adult.test Dataset**: *https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test*
 
 The splitting scheme is represented as follows:
-![](dataset.jpg){#id .class width=100% height=100%}
+
+![](dataset.jpg){#id .class width=80% height=80%}
 
 
 The following code is used to generate the required (sub) datasets.
@@ -979,11 +951,19 @@ The following code is used to generate the required (sub) datasets.
 
     census_data <- sample_n(census_data, 3000) ## TBD
     # to create the index with 80% train and 20% test
-    index <-
+    
+    indextemp <-
       sample(1:nrow(census_data), size = as.integer(nrow(census_data) * 0.8))
     
-    cd_train <- census_data[index,]
-    cd_test  <- census_data[-index,]
+    cd_sub <- census_data[indextemp,]
+    cd_validation  <- census_data[-indextemp,]
+    
+    
+    index <-
+      sample(1:nrow(cd_sub), size = as.integer(nrow(cd_sub) * 0.8))
+    
+    cd_train <- cd_sub[index,]
+    cd_test  <- cd_sub[-index,]
 ```
 
 #### Labels Dataset
@@ -1007,7 +987,7 @@ Next step is to extract labels (targets) from the test and test datasets, using 
 
 #### Feature Scaling
 
-Next we will scale all the features. It is a technique that scales all the features to be between 0 and 1. This speeds up the traiing time of the prediction models as all of the features are on the same scale. Following is the code used for feature scaling:
+Next, all the features will be scaled-up. It's a technique that scales all the characteristics from 0 to 1. It speeds up the prediction models' training time as all features are on the same scale. The code used in the scaling of the function follows:
 
 
 ```{r feature scaling}
@@ -1023,7 +1003,7 @@ Next we will scale all the features. It is a technique that scales all the featu
 
 #### Principal Component Analysis (PCA) to reduce dimensionality
 
-Now, let's perform Principal Component analysis, it is a method to reduce variable dimensionality; in other words, this method combines highly correlated variables together to form a smaller number of an artificial set of variables which is called “principal components” that account for most variance in the data. This improve accuracy, decrease model runtime, and  avoid issues like over-fitting in high dimensional space.
+Now, let's perform Principal Component Analysis, it's a variable dimensionality reduction method; in other words, this approach combines highly correlated variables together to form a smaller number of an artificial set of variables called "principal components" that account for the most variance in the data. This improves accuracy, reduces runtime of the model and avoids problems such as over-adjustment
  
 ```{r pca}
     # to perform PCA on train and test datasets with threshold of 95% variance
@@ -1051,16 +1031,20 @@ Now, after the analysis, data processing, and splitting we are ready for modelin
 
 ### 5.2 Model 1: Logistic Regression Model
 
+Let's first start with the *Logistic Regression Model*
+
 ```{r log_model}
     # to create logistic regression model
     log_model <- glm(cd_train_labels ~ ., data = cd_train, family = binomial(link='logit'))
+   
     #to loop through various threshold to find the optimal threshold
     thresholds <- seq(0, 1, 0.05)
 
     Prediction <- predict(log_model, newdata = cd_test, type = "response")
-
+    # loop function using sapply
     ACCs <- sapply(thresholds, function(threshold) {
         pred_table <- table(cd_test_labels, Prediction >= threshold)
+      # return the calculated accuracy
       return((sum(diag(pred_table)) / sum(pred_table)))
     })
     
@@ -1101,12 +1085,12 @@ The below code will display the results in a tabular form for easy comparison.
     dt_model <-
       train(cd_train_labels ~ ., data = cd_train_all, method = "rpart")
 
+    # to predict using test dataset
     Prediction_dt <-
       predict(dt_model, newdata = cd_test)
-
+    # to calculate model accuracy
     dt_acc <-
       mean(round(as.numeric(Prediction_dt)) == cd_test_labels)
-    
 
     # append results to the table
     model_results <- bind_rows(model_results,
@@ -1120,10 +1104,7 @@ The below code will display the results in a tabular form for easy comparison.
           row_spec(0, bold = T) %>%
           # to highlight the last row
           row_spec(2:2, bold = T, color = "white", background = "#D7261E")
-    
-    
-    # rpart.plot(dt_model, box.col = c('#FC4E07','#00AFBB'))
-    
+
 ```
     
 
@@ -1137,7 +1118,7 @@ The below code will display the results in a tabular form for easy comparison.
 
     Prediction_rf <-
       predict(rf_model, cd_test_all)
-    
+    # to calculate model accuracy    
     rf_acc <-
       mean(round(as.numeric(Prediction_rf$predictions)) == cd_test_labels)
 
@@ -1164,7 +1145,7 @@ The below code will display the results in a tabular form for easy comparison.
     svm_model <- svm(cd_train_labels~., data = cd_train, cost = 10)
     pred <- predict(svm_model, cd_test)
 
-    
+    # to calculate model accuracy    
     svn_acc <-
       mean(round(as.numeric(pred)) == cd_test_labels)
     
@@ -1194,6 +1175,7 @@ The below code will display the results in a tabular form for easy comparison.
     ACCs <- sapply(thresholds, function(threshold) {
       knn_model <- knn(cd_train, cd_test,
                        cl = cd_train_labels, k = threshold)
+      # return the calculated accuracy      
       return(mean(knn_model == cd_test_labels))
     })
 
@@ -1223,104 +1205,10 @@ The below code will display the results in a tabular form for easy comparison.
 ```
 
 
-### 5.7 Model 6: Gradient Boosting
-
-```{r gb_model, eval=FALSE}
-    # to create Gradient Boosting model
-
-    gb_model <-
-      gbm(as.numeric(cd_train_labels) - 1 ~ .,data = cd_train_all,
-        distribution = "bernoulli", n.trees = 5000 ,
-        interaction.depth = 4, shrinkage = .05)
-  
-    gbm.perf(gb_model)
-
-    boost.probs <- predict(gb_model, cd_test_all, type = "response", n.trees = 5000)
-    boost.pred <- ifelse(boost.probs > 0.5, 1, 0)
-    
-    cm.logit = confusionMatrix(data = boost.probs, cd_test_labels)
-    
-    cm.logit
-    #gb_acc <- mean(boost.pred == as.numeric(cd_test_labels)-1)
-    
-    gb_acc = .9932
-
-    # append results to the table
-    model_results <- bind_rows(model_results,
-                                tibble(Model = "Gradient Boosting",
-                                       Dataset = "cd_test",
-                                       Accuracy = round(gb_acc * 100,
-                                                        digits = 2)))
-    model_results %>%
-          kable("latex", booktabs = T)  %>%
-          kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
-          row_spec(0, bold = T) %>%
-          # to highlight the last row
-          row_spec(6:6, bold = T, color = "white", background = "#D7261E")
-    
-```
-
-
-### 5.8 Model 7: DNN
-
-```{r gb_model, eval=FALSE}
-    # to create Gradient Boosting model
-
-
-    # Keras only accepts matrices
-    cd_train_x <- as.matrix(select(cd_train))
-    cd_test_x <- as.matrix(select(cd_test))
-    
-    y_train <- as.matrix(select(cd_train_all))
-    y_test <- as.matrix(select(cd_test_all))
-
-
-
-    # Define the network architecture
-    #Using sequential model 
-    
-    dnn_model <- keras_model_sequential() 
-    
-    dnn_model %>% layer_dense(units = 64, activation = 'elu', 
-                          input_shape = dim(cd_train)[2]) %>%
-              layer_dropout(rate = 0.5) %>%
-              layer_dense(units = 128, activation = 'elu') %>%
-              layer_dropout(rate = 0.5) %>%
-              layer_dense(units = 256, activation = 'elu') %>%
-              layer_dropout(rate = 0.5) %>%
-              layer_dense(units = 128, activation = 'elu') %>%
-              layer_dropout(rate = 0.5) %>%
-              layer_dense(units = 64, activation = 'elu') %>%
-              layer_dense(units = 1, activation = 'sigmoid')
-    
-    # Using the adam optimizer
-    dnn_model %>% compile(loss = 'binary_crossentropy', optimizer = "adam",
-                      metrics = c('accuracy'))
-
-
-    dnn_acc = .9932
-
-    # # append results to the table
-    # model_results <- bind_rows(model_results,
-    #                             tibble(Model = "Gradient Boosting",
-    #                                    Dataset = "cd_test",
-    #                                    Accuracy = round(gb_acc * 100,
-    #                                                     digits = 2)))
-    # model_results %>%
-    #       kable("latex", booktabs = T)  %>%
-    #       kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
-    #       row_spec(0, bold = T) %>%
-    #       # to highlight the last row
-    #       row_spec(6:6, bold = T, color = "white", background = "#D7261E")
-    
-```
-
-<br/>
-
 # 6. Results
 ### 6.1 Modeling result comparison and performance
 
-The result of accuracy derived from various models is listed below. As we can clearly see there is an improvement as we moved from Logistic Regression Model model to the Random Forest Model. From all the models explored in this project, the **Random Forest Model** seems to be the best and the finally proposed model with the highest Accuracy (highlighted in green).
+The results of the accuracy of various models are listed below. There is an improvement as we switch from the Logistic Regression Model to the Random Forest Model, as we can clearly see. The **Random Forest Model** seems to be the best and the ultimately proposed model with the highest accuracy (highlighted in green) of all models explored in this project.
 
 ```{r results}
       # to display result tables with prediction model results 
@@ -1333,60 +1221,47 @@ The result of accuracy derived from various models is listed below. As we can cl
 
 ```
 
-<br/>
 
 # 7. Conclusion
 ### 7.1 Brief summary
 
 The main aim of the project is to develop a classifier system to predict if a person earns an annual income of greater than 50k. The used Adult Census Income dataset is a real-world challenge that seasoned data scientists would have handled. From data setup, data wrangling as well as exploratory analysis and ggplot based visualization graphs to various modeling approaches, the concepts learned throughout the series of courses are implemented. 
 
-Initially, Decision Tree, and Support Vector Machine prediction models are developed, later more complex multiple predictors models are attempted. An accuracy of **`r ` ** is attained with the **Logistic Regression Model**.
+Initially, Decision Tree, and Support Vector Machine prediction models are developed, later more complex predictive models are attempted. An accuracy of **`r paste0(round(log_acc * 100, digits = 2),"%")` ** is attained with the **Logistic Regression Model**.
+
+From the analysis, it can be summarized that 'age', 'education', 'hours_per_week', 'sex', and 'occupation' are the most important features.
  
-### 7.2 Future work # TBD
-The model using the Movie and User effects seems to have the best performance among the other two predictor models; however, multiple combinations of more than two potential predictors can be explored for further improvements as future work. 
-For example, *Genre-specific* effect on a user preference to rate a movie can be further explored. If a user rates movies with Drama genre high, the *Drama* effect for that user can be taken into account while predicting rating as the user is more likely to give higher ratings to movies with Drama as a sub-genre in combined genre Drama|Comedy and vice-versa.
-Such a genre-specific effect can be used along with Movie and User Effects for further improvement. 
-Furthermore, Other more complex modeling approaches such as XGBoost, NNET, etc could be used to further improve the performance.
+### 7.2 Future work
+
+In this project, the popluar analysis and modeling approaches are used to keep it limited to the scope of Capstone project. Nonetheless, more advanced modeling methods such as NNET, Deep Neural Network, etc. could be used as a potential extension of this project to further improve performance. In addition, other significant comparison quality features including Sensitivity, Specificity, Prevalence, F1 Score can be explored further. 
+
+
 
 ### 7.3 Limitations 
 Initially, Deep Neural Network was also planned; however, due to computing resource constraint it was not successful. 
 Also, due to the constraint, more sophisticated models with higher performance didn't succeed and thus not included in this report. Those would require powerful computing machines. 
 
 
-\pagebreak
-
-# 8. References #TBD
+# 8. References
 * Data Science textbook by Rafael Irizarry
-    + [Chapter 34.7 Recommendation systems](https://rafalab.github.io/dsbook/large-datasets.html#recommendation-systems)
-    + [Chapter 34.9 Regularization](https://rafalab.github.io/dsbook/large-datasets.html#regularization)
+    + https://rafalab.github.io/dsbook/large-datasets.html#dimension-reduction
+    + https://rafalab.github.io/dsbook/machine-learning-in-practice.html#k-nearest-neighbor-and-random-forest
+
 * UCI
     + Adult Census Income Dataset: http://archive.ics.uci.edu/ml/machine-learning-databases/adult
+    
+* adult: "Census Income" Dataset: https://rdrr.io/cran/datadr/man/adult.html
+
+* Sisay Menji Bekena:“Using decision tree classifier to predict income levels”, Munich Personal RePEc Archive 30th July, 2017
+
+* http://cseweb.ucsd.edu/classes/sp15/cse190-c/reports/sp15/048.pdf
 
 # 9. Github Repo
 * https://github.com/jha-r/Harvardx-PH125.9x-Capstone-Census_Income_CYO
+
 ```{r memory cleanup, echo = FALSE, results = "hide"}
       # Remove objects    
       rm(Married, Notmarried, LatinAmerica, SouthAmerica, Europe, Asia, SE_Aisa, US, UK, Canada)  
       # Call Garbage Collector
       gc()
 ```
-
-# TODO
-write up
-code comments 
-grammar
-validation_set
-PCA 
-ROC
-Chi Squared
-Coorelation
-importance
-
-
-Sensitivity : T.P/(T.P + F.N) a.k.a True Positive Rate
-Specificity : T.N/(T.N + F.P)
-SUM : T.P + T.N + F.N + F.P
-Detection Rate : T.P/SUM
-False Positive Rate : 1- Specificity : Probability of False Alarrm
-Prevalence : (T.P + F.N)/SUM
-Accuracy : (T.P + T.N)/SUM : at what percent our model works. a.k.a Observed Accuracy
