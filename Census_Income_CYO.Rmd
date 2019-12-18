@@ -25,12 +25,12 @@ output:
 
 ### 1.1 Overview
 
-This report is prepared to fulfill the completion requirement of the **HavardX PH125.9x Data Science Capstone** course. In this project, an income classifier prediction system is created using the US Census 1994 dataset. A classification system is a subclass of an information filtering system that seeks to classify people using demographics to predict whether a person will earn an annual income over 50K dollars or not.
+This report is prepared to fulfill the completion requirement of the **HavardX PH125.9x Data Science Capstone** course. In this project, an income classification system is created using the US Census 1994 dataset. A classification system is a subclass of an information filtering system that seeks to classify people using demographics to predict whether a person will earn an annual income over 50K dollars or not.
 
 
 ### 1.2 Project Goal
 
-The goal of this project is to train machine learning algorithms (beyond standard linear regression) that predict whether income exceeds $50K per annum based on census data with an accuracy more than 80% and then compares their performance with other prediction models.
+The goal of this project is to train machine learning algorithms (beyond standard linear regression) that predict whether income exceeds $50K per annum based on census data with an accuracy more than 80% and then compares their performance with other models.
 
 
 ### 1.3 Key steps performed
@@ -339,6 +339,7 @@ Next, collalte `marital_status` column values into 3 categories - *Married, Not-
       group_by(marital_status) %>%
       summarise(count =n(), 
                 proportion = paste0(round(count/nrow(census_data)*100, digits = 2),"%")) %>%
+      arrange(desc(count)) %>%
       kable() %>%
       kable_styling(latex_options = c("striped", "hover", "condensed"))  %>%
       row_spec(0, bold = T)
@@ -375,7 +376,6 @@ Next, the `capital_gain` and  `capital_loss` columns can be combined into a sing
       select(-capital_gain, -capital_loss)
 ```
 
-\pagebreak
 
 #### Remove Final Weight column
 
@@ -392,7 +392,7 @@ The final weight is represented by `fnlwgt` column, adjusts the weight as per po
 
 #### Combine Native Country column catagories
 
-There are too many categories in `native_country` column, it can be reduced to their respective regions and key countries can be kept. The countries are categorized among their respective regions and leaving key countries such as the *US* to see if native to the countries make any difference to the income prediction.
+There are too many categories in `native_country` column, it can be reduced to their respective regions and key countries can be kept. The countries are categorized among their respective regions and leaving key countries such as the *US* to see if native to the countries make any difference to the income classification.
 
 ```{r native_country}
     # to combine the column values catagories 
@@ -439,6 +439,7 @@ There are too many categories in `native_country` column, it can be reduced to t
       group_by(native_country) %>%
       summarise(count =n(), 
                 proportion = paste0(round(count/nrow(census_data)*100, digits = 2),"%")) %>%
+      arrange(desc(count)) %>%
       kable() %>%
       kable_styling(latex_options = c("striped", "hover", "condensed"))  %>%
       row_spec(0, bold = T)
@@ -479,6 +480,7 @@ Similarly, categories in `education` column can be combined into a fewer columns
       group_by(education) %>%
       summarise(count =n(), 
                 proportion = paste0(round(count/nrow(census_data)*100, digits = 2),"%")) %>%
+      arrange(desc(count)) %>%        
       kable() %>%
       kable_styling(latex_options = c("striped", "hover", "condensed"))  %>%
       row_spec(0, bold = T)
@@ -504,6 +506,7 @@ Next, categories in `workclass` column can be combined into fewer categories as 
       group_by(workclass) %>%
       summarise(count =n(), 
                 proportion = paste0(round(count/nrow(census_data)*100, digits = 2),"%")) %>%
+      arrange(desc(count)) %>%        
       kable() %>%
       kable_styling(latex_options = c("striped", "hover", "condensed"))  %>%
       row_spec(0, bold = T)
@@ -560,7 +563,8 @@ It is evident from the graph that the country of origin has a bias in the income
           title = "Impact of the country of origin on income classification")
       
     # to display category proportion as per income distribution
-    prop.table(table(census_data$native_country, census_data$income), 1) * 100
+    round(prop.table(table(census_data$native_country, 
+                                  census_data$income), 1) * 100, digits = 2)
 
 ```
 
@@ -587,7 +591,8 @@ It can also be observed from the graph that the people in managerial and profess
            title = "Biased in the income based on occupation")
 
     # to display category proportion as per income distribution
-    prop.table(table(census_data$occupation, census_data$income), 1) * 100
+    round(prop.table(table(census_data$occupation, 
+                                  census_data$income), 1) * 100, digits = 2)   
 
 ```
 
@@ -614,7 +619,8 @@ It can be certainly observed from the below graph that more educated the person 
            title = "Education bias")
     
     # to display category proportion as per income distribution    
-    prop.table(table(census_data$education, census_data$income), 1) * 100
+    round(prop.table(table(census_data$education, 
+                                  census_data$income), 1) * 100, digits = 2)     
 
 ```
 
@@ -642,9 +648,8 @@ Next, let's check what would be the impact of people's working class on their in
         title = "Working class bias")
     
     # to display category proportion as per income distribution 
-    prop.table(table(census_data$workclass, census_data$income), 1) * 100
-
- 
+    round(prop.table(table(census_data$workclass, 
+                                  census_data$income), 1) * 100, digits = 2)     
 ```
 
 
@@ -670,8 +675,8 @@ As it can be observed from the below graph the the married people tend to earn m
            title = "Marital Status vs income")
 
     # to display category proportion as per income distribution    
-    prop.table(table(census_data$marital_status, census_data$income), 1) * 100
-
+    round(prop.table(table(census_data$marital_status, 
+                                  census_data$income), 1) * 100, digits = 2)      
 ```
 
 
@@ -697,7 +702,8 @@ People with Asian and White as their race groups have major proportions making m
           title = "Race bias")
 
     # to display category proportion as per income distribution
-    prop.table(table(census_data$race, census_data$income), 1) * 100
+    round(prop.table(table(census_data$race, 
+                                  census_data$income), 1) * 100, digits = 2)      
 
 ```
 
@@ -722,8 +728,8 @@ The below table depicts that the men makes more money than female, it is certain
       labs(x = "Gender", y = "Count", title = "Men tends to earn more")
 
     # to display category proportion as per income distribution
-    prop.table(table(census_data$sex, census_data$income), 1) * 100
-
+    round(prop.table(table(census_data$sex, 
+                                  census_data$income), 1) * 100, digits = 2)
 ```
 
 
@@ -915,7 +921,7 @@ The first step is to check if any variable got changed to 'char' from 'factor' d
 
 #### Encoding: One-Hot Encode Factors
 
-Now, let's do some data processing to make the data suitable (and often essential) for modeling predictive models.One-hot encoding is a process to convert to multiple binarized vectors from categorical vectors. Each 1s and 0s binary vector indicates the presence of the original vector class or levels. Categorical variables are translated into a type in this method that could help make prediction algorithms more efficient; however, the number of columns is expanded.
+Now, let's do some data processing to make the data suitable (and often essential) for modeling classifier models.One-hot encoding is a process to convert to multiple binarized vectors from categorical vectors. Each 1s and 0s binary vector indicates the presence of the original vector class or levels. Categorical variables are translated into a type in this method that could help make algorithms more efficient; however, the number of columns is expanded.
 
 The below code is used to do encoding and also it can be see that the columns increased to 57 from 12.
 
@@ -964,7 +970,7 @@ The following code is used to generate the required (sub) datasets.
 
     # Partition the data set into cd_sub and cd_validation dataset. 
     # The cd_test set will be 20% of census_data
-    #census_data <- sample_n(census_data, 10000) ## TBD
+    census_data <- sample_n(census_data, 10000) ## TBD
     
     # to create the index with 80% train and 20% test
     indextemp <-
@@ -1004,7 +1010,7 @@ Next step is to extract labels (targets) from the test and test datasets, using 
 
 #### Feature Scaling
 
-Next, all the features will be scaled-up. It's a technique that scales all the characteristics from 0 to 1. It speeds up the prediction models' training time as all features are on the same scale. The code used in the scaling of the function follows:
+Next, all the features will be scaled-up. It's a technique that scales all the characteristics from 0 to 1. It speeds up the models' training time as all features are on the same scale. The code used in the scaling of the function follows:
 
 
 ```{r feature scaling}
@@ -1044,7 +1050,7 @@ Now, combine labels in the train and test datasets after performing PCA, using t
 
 # 5. Modeling Approach
 
-Now, after the analysis, data processing, and splitting we are ready for modeling the prediction model, this section describes modeling approaches and insights gained before finalizing a target model.
+Now, after the analysis, data processing, and splitting we are ready for modeling the classification model, this section describes modeling approaches and insights gained before finalizing a target model.
 
 ### 5.2 Model 1: Logistic Regression Model
 
@@ -1128,6 +1134,9 @@ The below code will display the results in a tabular form for easy comparison.
 
 ### 5.4 Model 3: Random Forest
 
+
+As per a publication by researchgate (details in reference section) the optimal numbers of trees for the model is between 64 and 218, so to find the optimal number of tree the algorithm is looped between 50 to 150 with an interval of 10.
+
 ```{r rf_model}
     #to loop through various threshold to find the optimal threshold (tree no.)
     trees <- seq(50, 150, 10)
@@ -1170,20 +1179,35 @@ The below code will display the results in a tabular form for easy comparison.
 
 ### 5.5 Model 4: Support Vector Machine
 
-```{r svn_model}
-    # to create Support Vector Machine model
-    svm_model <- svm(cd_train_labels~., data = cd_train, cost = 10)
-    pred <- predict(svm_model, cd_test)
+Initially, accuracy was calculated for cost ranging between 0.1 to 100, and cost near 10 gave the maximum accuracy for SVM, so a narrower cost is tried.
 
-    # to calculate model accuracy    
-    svn_acc <-
-      mean(round(as.numeric(pred)) == cd_test_labels)
+```{r svm_model}
+    # to create Support Vector Machine model
+    
+    # loop through costs to find optimal cost for svm
+    costs <- seq(0, 15, 5)
+    ACCs <- sapply(costs, function(cost) {
+      svm_model <- svm(cd_train_labels ~ ., data = cd_train, cost = cost)
+      pred <- predict(svm_model, cd_test)
+      
+      # to calculate model accuracy
+      return(mean(round(as.numeric(pred)) == cd_test_labels))
+    })
+    
+    # to plot threshold point vs accuracy
+    qplot(costs, ACCs, geom = c("point", "line"))
+    
+    # to find the optimal cost for which accuracy is maximum
+    cost_svm <- costs[which.max(ACCs)]
+    cost_svm
+    # accuracy for the optimal cost value
+    svm_acc <- max(ACCs)
     
     # append results to the table
     model_results <- bind_rows(model_results,
                                 tibble(Model = "Support Vector Machine",
                                        Dataset = "cd_test",
-                                       Accuracy = round(svn_acc * 100,
+                                       Accuracy = round(svm_acc * 100,
                                                         digits = 2)))
     model_results %>%
           kable("latex", booktabs = T)  %>%
@@ -1300,7 +1324,10 @@ This model generated the accuracy of **`r paste0(round(log_val_acc * 100, digits
 # 6. Results
 ### 6.1 Modeling result comparison and performance
 
-The results of the accuracy of various models are listed below. The **Logistic Regression Model** seems to be the best and the ultimately proposed model with the highest accuracy (highlighted in green) of all models explored in this project.
+The results of the accuracy of various models are listed below. The **Logistic Regression Model** achieved the highest accuracy and the ultimately proposed model (highlighted in green) of all models explored in this project.
+It is closely followed by k Nearest Neighbor, Support Vector Machine; whereas, Random Forest Model and Decision Tree Model ranked at the least two positions with respect to the performance.
+
+The poor performance by Random Forest as compared with other models is attributed to not excluding the less important features (feature importance). kNN model is known to work better for classification problems; however, for the same feature importance reason it doesn't yield better performance. Support Vector Machine produced the similar result as compared with kNN, the SVM performance could be improved by introducing gamma. Logistic Regression Model is a simpler model with less time to train.
 
 ```{r results}
       # to display result tables with prediction model results 
@@ -1319,7 +1346,7 @@ The results of the accuracy of various models are listed below. The **Logistic R
 
 The main aim of the project is to develop a classifier system to predict if a person earns an annual income of greater than 50k. The used Adult Census Income dataset is a real-world challenge that seasoned data scientists would have handled. From data setup, data wrangling as well as exploratory analysis and ggplot based visualization graphs to various modeling approaches, the concepts learned throughout the series of courses are implemented. 
 
-Initially, Decision Tree, and Support Vector Machine prediction models are developed, later more complex predictive models are attempted. An accuracy of **`r paste0(round(log_val_acc * 100, digits = 2),"%")` ** is attained with the **Logistic Regression Model**.
+Initially, Decision Tree, and Support Vector Machine models are developed, later more complex classification models are attempted. An accuracy of **`r paste0(round(log_val_acc * 100, digits = 2),"%")` ** is attained with the **Logistic Regression Model**.
 
 From the analysis, it can be summarized that 'age', 'education', 'hours_per_week', 'sex', and 'occupation' are the most important features.
  
