@@ -55,10 +55,11 @@ The first step in the whole process is to import and setup data, before performi
 Let's start with the dataset, as per course instruction, Machine Learning analyses friendly **Adult Census Income** dataset, provided by UCI is used. The data was extracted from the 1994 Census bureau database by Ronny Kohavi and Barry Becker (Data Mining and Visualization, Silicon Graphics). The dataset is then cleaned considering the following criteria: 
 
  - age > 16
- - adjusted gross income > $100
  - final weighting > 1
+ - adjusted gross income (AGI) > $100
  - working hours per week > 0
 
+ 
 This dataset can be found and downloaded here:
 
 * Adult Census Income dataset:           http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data
@@ -737,7 +738,7 @@ The below graphs shows that the majority of people works between 35 to 65 hours;
       # to flip coordinate to adust the text  
       coord_flip() +
       # to provide a title, x, and y axis labels  
-      labs(x = "Hours per Week", y = "Proportion", title = "Men earn more")
+      labs(x = "Hours per Week", y = "Proportion", title = "Hours/week vs Proportion")
     
     # to plot a table with mean working hours for both income categories
     census_data %>%
@@ -945,12 +946,8 @@ It can be observed that the income column is also converted into two columns inc
 
 
 #### Spliting dataset: Training and Validation Sets
-TBD
-Let's first split the census_data datasetinto *cd_train* and *cd_test* set (20%). The algorithms are developed using the cd_train and cd_test; and their acurracy and performance is compared based on it.
 
-For a final test of the algorithm, income is to be predicted on the **Adult.test** (a separate validation dataset provided by UCI) as if they were unknown. However, to keep the scope of this report limited to the goal of modeling various prediction models, the final test on Adult.test (validation) dataset is not discussed here.
-
-**Adult.test Dataset**: *https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test*
+Let's first split the census_data dataset into **cd_sub** (subset) and **cd_validation** set (20%), and the cd_sub set will then be further split into a **cd_train** and **cd_test**  set with the test set being 20%. The algorithms are developed using the cd_sub (cd_train and cd_test); for a final test of the algorithm, income is to be predicted on the **cd_validation** (a separate validation dataset) as if they were unknown. 
 
 The splitting scheme is represented as follows:
 
@@ -961,23 +958,23 @@ The following code is used to generate the required (sub) datasets.
 
 ```{r split datasets}
     ##############################################################################    
-    # to split datasets into cd_train, and cd_test
+    # to split datasets into cd_sub, cd_validation, cd_train, and cd_test
     ##############################################################################
     set.seed(1)
-    # Partition the data set into cd_train and cd_test dataset
-    # with respect to dependent variable income
-    # The cd_test set will be 20% of census_data
 
-   census_data <- sample_n(census_data, 10000) ## TBD
-    # to create the index with 80% train and 20% test
+    # Partition the data set into cd_sub and cd_validation dataset. 
+    # The cd_test set will be 20% of census_data
+    census_data <- sample_n(census_data, 10000) ## TBD
     
+    # to create the index with 80% train and 20% test
     indextemp <-
       sample(1:nrow(census_data), size = as.integer(nrow(census_data) * 0.8))
     
     cd_sub <- census_data[indextemp,]
     cd_validation  <- census_data[-indextemp,]
     
-    
+    #  # Now, further split the cd_sub into cd_train and cd_test dataset
+    # with respect to dependent variable income
     index <-
       sample(1:nrow(cd_sub), size = as.integer(nrow(cd_sub) * 0.8))
     
@@ -1132,15 +1129,42 @@ The below code will display the results in a tabular form for easy comparison.
 ### 5.4 Model 3: Random Forest
 
 ```{r rf_model}
+ #to loop through various threshold to find the optimal threshold
+    thresholds <- seq(50, 150, 10)
+
+    ACCs <- sapply(thresholds, function(threshold) {
     # to create Random Forest model
     rf_model <-
-      ranger(cd_train_labels ~ ., data = cd_train_all, num.trees = 100)
+      ranger(cd_train_labels ~ ., data = cd_train_all, num.trees = threshold)
 
     Prediction_rf <-
       predict(rf_model, cd_test_all)
     # to calculate model accuracy
-    rf_acc <-
-      mean(round(as.numeric(Prediction_rf$predictions)) == cd_test_labels)
+
+     return( mean(round(as.numeric(Prediction_rf$predictions)) == cd_test_labels))
+
+    })
+    
+        # to plot threshold point vs accuracy
+    qplot(thresholds, ACCs, geom = c("point", "line"))
+    
+      # to find the optimal threshhold for which accuracy is maximum
+    threshold_rf <- thresholds[which.max(ACCs)]
+        threshold_rf
+    # accuracy for the optimal threshhold value
+    rf_acc <- max(ACCs)
+
+        
+    
+    # # to create Random Forest model
+    # rf_model <-
+    #   ranger(cd_train_labels ~ ., data = cd_train_all, num.trees = 100)
+    # 
+    # Prediction_rf <-
+    #   predict(rf_model, cd_test_all)
+    # # to calculate model accuracy
+    # rf_acc <-
+    #   mean(round(as.numeric(Prediction_rf$predictions)) == cd_test_labels)
 
     # append results to the table
     model_results <- bind_rows(model_results,
@@ -1290,7 +1314,7 @@ This model generated the accuracy of **`r paste0(round(log_val_acc * 100, digits
 # 6. Results
 ### 6.1 Modeling result comparison and performance
 
-The results of the accuracy of various models are listed below. There is an improvement as we switch from the Logistic Regression Model to the Random Forest Model, as we can clearly see. The **Logistic Regression Model** seems to be the best and the ultimately proposed model with the highest accuracy (highlighted in green) of all models explored in this project.
+The results of the accuracy of various models are listed below. The **Logistic Regression Model** seems to be the best and the ultimately proposed model with the highest accuracy (highlighted in green) of all models explored in this project.
 
 ```{r results}
       # to display result tables with prediction model results 
@@ -1315,7 +1339,7 @@ From the analysis, it can be summarized that 'age', 'education', 'hours_per_week
  
 ### 7.2 Future work
 
-In this project, the popluar analysis and modeling approaches are used to keep it limited to the scope of Capstone project. Nonetheless, more advanced modeling methods such as NNET, Deep Neural Network, etc. could be used as a potential extension of this project to further improve performance. In addition, other significant comparison quality features including Sensitivity, Specificity, Prevalence, F1 Score can be explored further. 
+In this project, the popluar analysis and modeling approaches are used to keep it limited to the scope of Capstone project. Nonetheless, more advanced modeling methods such as NNET, Deep Neural Network, etc. as well as modeling with features based on their importance could be used as a potential extension of this project to further improve the performance. In addition, other significant comparison quality features including Sensitivity, Specificity, Prevalence, F1 Score, AUC, ROC curve can be explored further. 
 
 
 
@@ -1337,6 +1361,8 @@ Also, due to the constraint, more sophisticated models with higher performance d
 * Sisay Menji Bekena:“Using decision tree classifier to predict income levels”, Munich Personal RePEc Archive 30th July, 2017
 
 * http://cseweb.ucsd.edu/classes/sp15/cse190-c/reports/sp15/048.pdf
+
+* https://www.researchgate.net/publication/230766603_How_Many_Trees_in_a_Random_Forest
 
 # 9. Github Repo
 * https://github.com/jha-r/Harvardx-PH125.9x-Capstone-Census_Income_CYO
