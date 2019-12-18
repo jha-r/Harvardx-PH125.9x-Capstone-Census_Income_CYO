@@ -964,7 +964,7 @@ The following code is used to generate the required (sub) datasets.
 
     # Partition the data set into cd_sub and cd_validation dataset. 
     # The cd_test set will be 20% of census_data
-    census_data <- sample_n(census_data, 10000) ## TBD
+    #census_data <- sample_n(census_data, 10000) ## TBD
     
     # to create the index with 80% train and 20% test
     indextemp <-
@@ -1129,42 +1129,28 @@ The below code will display the results in a tabular form for easy comparison.
 ### 5.4 Model 3: Random Forest
 
 ```{r rf_model}
- #to loop through various threshold to find the optimal threshold
-    thresholds <- seq(50, 150, 10)
+    #to loop through various threshold to find the optimal threshold (tree no.)
+    trees <- seq(50, 150, 10)
 
-    ACCs <- sapply(thresholds, function(threshold) {
+    ACCs <- sapply(trees, function(tree) {
     # to create Random Forest model
     rf_model <-
-      ranger(cd_train_labels ~ ., data = cd_train_all, num.trees = threshold)
+      ranger(cd_train_labels ~ ., data = cd_train_all, num.trees = tree)
 
     Prediction_rf <-
       predict(rf_model, cd_test_all)
     # to calculate model accuracy
-
      return( mean(round(as.numeric(Prediction_rf$predictions)) == cd_test_labels))
-
     })
     
-        # to plot threshold point vs accuracy
-    qplot(thresholds, ACCs, geom = c("point", "line"))
+    # to plot threshold point vs accuracy
+    qplot(trees, ACCs, geom = c("point", "line"))
     
-      # to find the optimal threshhold for which accuracy is maximum
-    threshold_rf <- thresholds[which.max(ACCs)]
-        threshold_rf
+    # to find the optimal threshhold (no. of trees) for which accuracy is maximum
+    tree_rf <- trees[which.max(ACCs)]
+    tree_rf
     # accuracy for the optimal threshhold value
     rf_acc <- max(ACCs)
-
-        
-    
-    # # to create Random Forest model
-    # rf_model <-
-    #   ranger(cd_train_labels ~ ., data = cd_train_all, num.trees = 100)
-    # 
-    # Prediction_rf <-
-    #   predict(rf_model, cd_test_all)
-    # # to calculate model accuracy
-    # rf_acc <-
-    #   mean(round(as.numeric(Prediction_rf$predictions)) == cd_test_labels)
 
     # append results to the table
     model_results <- bind_rows(model_results,
