@@ -767,10 +767,12 @@
  ##############################################################################
  # to split datasets into cd_sub, cd_validation, cd_train, and cd_test
  ##############################################################################
-       set.seed(1)
+
        # Partition the data set into cd_sub and cd_validation dataset.
        # The cd_test set will be 20% of census_data
-
+        set.seed(1, sample.kind="Rounding")
+        # if using R 3.5 or earlier, use `set.seed(1)` instead
+    
        # to create the index with 80% train and 20% test
        indextemp <-
          sample(1:nrow(census_data), size = as.integer(nrow(census_data) * 0.8))
