@@ -90,8 +90,6 @@ To assist with our data import and initial setup, several packages from *CRAN* i
     if (!require(ranger))
       install.packages("ranger", dependencies=TRUE, 
                        repos = "http://cran.us.r-project.org")
-    if (!require(gbm))
-      install.packages("gbm",repos = "http://cran.us.r-project.org")
     if (!require(dummies))
       install.packages("dummies", repos = "http://cran.us.r-project.org")
     if (!require(dplyr))
@@ -205,18 +203,19 @@ Let's check column types and their class.
 
 ```{r Columns}
     # To display dataset column types and summary
-    col_type <- as.data.frame(lapply(census_data, class)) %>%
+    col_typ <- as.data.frame(lapply(census_data, class)) %>%
       .[1, ] %>%
-      gather(variable, R_class , 1:ncol(.)) %>%
+      gather(variable, class , 1:ncol(.)) %>%
       mutate(data_type = ifelse(
-        R_class == "factor",
+        class == "factor",
         "categorical",
         ifelse(variable == "education_num", "categorical", "continuous")
       )) 
-    col_type %>%
+    col_typ %>%
       # to format table with theme
       kable() %>%
-      kable_styling(latex_options = c("striped", "hover", "condensed")) 
+      kable_styling(latex_options = c("striped", "hover", "condensed")) %>%
+      row_spec(0, bold = T)
 ```
 
 
@@ -758,7 +757,7 @@ The below graphs shows that the majority of people works between 35 to 65 hours;
 
 #### Outlier Data points
 
-Outliers are the datapoints that differ considerably from other observations. It can be attributed to calculation uncertainty or data errors. The larger outliers have an excessively large impact on model performance; thus, removing them from the dataset is advisable. Common attributes will be considered in the following sections.
+Outliers are the datapoints that differ considerably from other observations. It can be attributed to calculation uncertainty or errors. The larger outliers have an excessively large impact on model performance; thus, removing them from the dataset is advisable. Common attributes will be considered in the following sections.
 
 
 #### Outliers: Education level
@@ -970,8 +969,7 @@ The following code is used to generate the required (sub) datasets.
 
     # Partition the data set into cd_sub and cd_validation dataset. 
     # The cd_test set will be 20% of census_data
-    census_data <- sample_n(census_data, 10000) ## TBD
-    
+
     # to create the index with 80% train and 20% test
     indextemp <-
       sample(1:nrow(census_data), size = as.integer(nrow(census_data) * 0.8))
@@ -1010,7 +1008,7 @@ Next step is to extract labels (targets) from the test and test datasets, using 
 
 #### Feature Scaling
 
-Next, all the features will be scaled-up. It's a technique that scales all the characteristics from 0 to 1. It speeds up the models' training time as all features are on the same scale. The code used in the scaling of the function follows:
+Next, all the features will be scaled-up. It's a technique that scales all the characteristics that speeds up the models' training time as all features are on the same scale. The code used in the scaling of the function follows:
 
 
 ```{r feature scaling}
@@ -1135,7 +1133,7 @@ The below code will display the results in a tabular form for easy comparison.
 ### 5.4 Model 3: Random Forest
 
 
-As per a publication by researchgate (details in reference section) the optimal numbers of trees for the model is between 64 and 218, so to find the optimal number of tree the algorithm is looped between 50 to 150 with an interval of 10.
+As per a publication by researchgate (details in reference section) the optimal numbers of trees for the model is between 64 and 128, so to find the optimal number of tree the algorithm is looped between 50 to 150 with an interval of 10.
 
 ```{r rf_model}
     #to loop through various threshold to find the optimal threshold (tree no.)
@@ -1179,13 +1177,13 @@ As per a publication by researchgate (details in reference section) the optimal 
 
 ### 5.5 Model 4: Support Vector Machine
 
-Initially, accuracy was calculated for cost ranging between 0.1 to 100, and cost near 10 gave the maximum accuracy for SVM, so a narrower cost is tried.
+Initially, accuracy was calculated for cost ranging between 0.1 to 100, and cost near 5 gave the maximum accuracy for SVM, so a narrower cost range around 5 is tried.
 
 ```{r svm_model}
     # to create Support Vector Machine model
-    
+
     # loop through costs to find optimal cost for svm
-    costs <- seq(0, 15, 5)
+    costs = c(1, 3, 5, 7, 15)   
     ACCs <- sapply(costs, function(cost) {
       svm_model <- svm(cd_train_labels ~ ., data = cd_train, cost = cost)
       pred <- predict(svm_model, cd_test)
@@ -1202,7 +1200,7 @@ Initially, accuracy was calculated for cost ranging between 0.1 to 100, and cost
     cost_svm
     # accuracy for the optimal cost value
     svm_acc <- max(ACCs)
-    
+
     # append results to the table
     model_results <- bind_rows(model_results,
                                 tibble(Model = "Support Vector Machine",
@@ -1325,7 +1323,7 @@ This model generated the accuracy of **`r paste0(round(log_val_acc * 100, digits
 ### 6.1 Modeling result comparison and performance
 
 The results of the accuracy of various models are listed below. The **Logistic Regression Model** achieved the highest accuracy and the ultimately proposed model (highlighted in green) of all models explored in this project.
-It is closely followed by k Nearest Neighbor, Support Vector Machine; whereas, Random Forest Model and Decision Tree Model ranked at the least two positions with respect to the performance.
+It is closely followed by Support Vector Machine, k Nearest Neighbor; whereas, Random Forest Model and Decision Tree Model ranked at the least two positions with respect to the performance.
 
 The poor performance by Random Forest as compared with other models is attributed to not excluding the less important features (feature importance). kNN model is known to work better for classification problems; however, for the same feature importance reason it doesn't yield better performance. Support Vector Machine produced the similar result as compared with kNN, the SVM performance could be improved by introducing gamma. Logistic Regression Model is a simpler model with less time to train.
 
@@ -1340,11 +1338,10 @@ The poor performance by Random Forest as compared with other models is attribute
 
 ```
 
-
 # 7. Conclusion
 ### 7.1 Brief summary
 
-The main aim of the project is to develop a classifier system to predict if a person earns an annual income of greater than 50k. The used Adult Census Income dataset is a real-world challenge that seasoned data scientists would have handled. From data setup, data wrangling as well as exploratory analysis and ggplot based visualization graphs to various modeling approaches, the concepts learned throughout the series of courses are implemented. 
+The main aim of the project is to develop a classifier system to predict if a person earns an annual income of greater than 50k. The used Adult Census Income dataset is a real-world challenge that seasoned data scientists would have handled. From data setup, data wrangling as well as exploratory analysis and ggplot based visualization graphs to various modeling approaches, the concepts learned throughout the series of these courses are implemented. 
 
 Initially, Decision Tree, and Support Vector Machine models are developed, later more complex classification models are attempted. An accuracy of **`r paste0(round(log_val_acc * 100, digits = 2),"%")` ** is attained with the **Logistic Regression Model**.
 
@@ -1357,6 +1354,7 @@ In this project, the popluar analysis and modeling approaches are used to keep i
 
 
 ### 7.3 Limitations 
+
 Initially, Deep Neural Network was also planned; however, due to computing resource constraint it was not successful. 
 Also, due to the constraint, more sophisticated models with higher performance didn't succeed and thus not included in this report. Those would require powerful computing machines. 
 
@@ -1376,6 +1374,8 @@ Also, due to the constraint, more sophisticated models with higher performance d
 * http://cseweb.ucsd.edu/classes/sp15/cse190-c/reports/sp15/048.pdf
 
 * https://www.researchgate.net/publication/230766603_How_Many_Trees_in_a_Random_Forest
+
+* https://scholar.smu.edu/cgi/viewcontent.cgi?article=1041&context=datasciencereview
 
 # 9. Github Repo
 * https://github.com/jha-r/Harvardx-PH125.9x-Capstone-Census_Income_CYO
